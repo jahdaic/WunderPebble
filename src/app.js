@@ -12,13 +12,15 @@ var Vector2 = require('vector2');
 
 // GLOBAL VARIABLE
 var base = "https://api.wunderlist.com";
+var reportingURL = "http://intrepidwebdesigns.com/WunderPebble/config/report.php"
 var refreshed = 0;
+var taskItems = 0;
 var listsList = {inbox: 'Inbox', today: 'Today', week: 'Week'};
 
 // CONFIGURATION
 Settings.config(
 	{
-		url: "http://intrepidwebdesigns.com/WunderPebble/config/?email="+Settings.option('username')+"&password="+Settings.option('password')
+		url: "http://intrepidwebdesigns.com/WunderPebble/config/?email="+Settings.option('username')+"&password="+Settings.option('password')+"&reporting="+Settings.option('reporting')
 	},
 	function(e)
 	{
@@ -35,7 +37,8 @@ Settings.config(
 		Settings.option('username', data.email);
 		Settings.option('password', data.password);
 		Settings.option('token', data.token);
-		Settings.option('settings', data)
+		Settings.option('settings', data.data);
+		Settings.option('reporting', data.data.errorReporting);
 	}
 );
 
@@ -43,10 +46,19 @@ Settings.config(
 var noConfig = new UI.Card(
 {
 	title: " WunderPebble",
-	subtitle: "\nOpen the Pebble App on your phone and configure the settings for this watchapp.",
+	body: "\nOpen the Pebble App on your phone and configure the settings for this watchapp.",
 	icon: 'images/icon.png',
 	style: 'small'
 });
+var error = new UI.Card(
+{
+	title: " Error",
+	body: "",
+	icon: 'images/error.png',
+	style: 'small',
+	scrollable: true
+});
+var splash = new UI.Card({ banner: 'images/splash.png' });
 var loading = new UI.Card({ banner: 'images/loading.png' });
 var listMenu = new UI.Menu({sections: [{items:[]}]});
 var taskMenu = new UI.Menu({sections: [{items:[]}]});
@@ -77,9 +89,17 @@ var taskStar = new UI.Image(
 // EVENT LISTENERS
 noConfig.on('select', function(e)
 {
-	if(typeof Settings.option('username') !== 'undefined' && typeof Settings.option('password') !== 'undefined')
+	if(typeof Settings.option('token') !== 'undefined' && Settings.option('token') !== null)
 	{
-		getLists();
+		try
+		{
+			getLists();
+		}
+		catch(err)
+		{
+			reportError(err);
+		}
+		
 		listMenu.show();
 		noConfig.hide();
 	}
@@ -90,11 +110,32 @@ listMenu.on('select', function(e)
 	console.log('Selected List Item: ' + e.item.title);
 	
 	loading.show();
-	getTasks(e.item.id, e.item.title);
+	
+	try
+	{
+		getTasks(e.item.id, e.item.title);
+	}
+	catch(err)
+	{
+		reportError(err);
+	}
 	
 	onRefresh(function() {
-		taskMenu.show();
-		loading.hide();
+		if(taskItems)
+		{
+			console.log('We have items');
+			taskMenu.show();
+			loading.hide();
+		}
+		else
+		{
+			console.log('No items');
+			error.body("\nNo tasks were found for this list");
+			error.show();
+			loading.hide();
+		}
+		
+		taskItems = 0;
 	});
 });
 
@@ -117,14 +158,22 @@ taskMenu.on('select', function(e)
 //});
 
 // PROGRAM START
-if(typeof Settings.option('username') !== 'undefined' && typeof Settings.option('password') !== 'undefined')
+if(typeof Settings.option('token') !== 'undefined' && Settings.option('token') !== null)
 {
-	loading.show();
-	getLists();
+	splash.show();
+	
+	try
+	{
+		getLists();
+	}
+	catch(err)
+	{
+		reportError(err);
+	}
 	
 	onRefresh(function() {
 		listMenu.show();
-		loading.hide();
+		splash.hide();
 	});
 }
 else
@@ -231,8 +280,7 @@ function getTasks(id, list)
 					
 					if(date.getTime() <= today.getTime() && data[i].completed_at === null)
 					{
-						console.log(date.toDateString());
-						console.log(today.toDateString());
+						taskItems++;
 						
 						if(date.toDateString() == today.toDateString())
 							date = 'Today';
@@ -271,6 +319,8 @@ function getTasks(id, list)
 					// Rework to show 7 days to future, maybe divide by day/section
 					if((date.getWeek() == today.getWeek() || date.getTime() <= today.getTime()) && data[i].completed_at === null)
 					{
+						taskItems++;
+						
 						if(date.toDateString() == today.toDateString())
 							date = 'Today';
 						else if(date.toDateString() == tomorrow.toDateString())
@@ -302,11 +352,10 @@ function getTasks(id, list)
 			{
 				if(data[i].list_id == id && data[i].completed_at === null && data[i].deleted_at === null && data[i].parent_id === null)
 				{
+					taskItems++;
 					
 					var dateString = data[i].due_date + 'T00:00' + timeZone;
 					var date = new Date(dateString);
-					
-					console.log(dateString);
 					
 					if(!data[i].due_date)
 						date = '';
@@ -342,7 +391,7 @@ function getTasks(id, list)
 		
 		refreshed = 1;
 		
-		console.log('Done Getting Tasks');
+		console.log('Done Getting '+ taskItems +' Tasks');
 	},
 	function(error) {
 		console.log('Getting Tasks Failed: ' + JSON.stringify(error));
@@ -506,6 +555,32 @@ function onRefresh(callback)
 			onRefresh(callback);
 		}
 	}, 200);
+}
+
+function reportError(error)
+{
+	if(Settings.option('reporting'))
+	{
+		ajax(
+		{
+			url: reportingURL,
+			type: 'string',
+			method: 'post',
+			data: {error: error}
+		},
+		function(data)
+		{
+			console.log('Error Reported');
+
+
+			console.log(data);
+		},
+		function(error) {
+			console.log('Error Report Failed');
+		});
+	}
+	else
+		return false;
 }
 
 Date.prototype.getWeek = function()

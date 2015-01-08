@@ -29,6 +29,16 @@
                 "type": "font"
             },
             {
+                "file": "images/error.png",
+                "name": "IMAGES_ERROR_PNG",
+                "type": "png"
+            },
+            {
+                "file": "images/splash.png",
+                "name": "IMAGES_SPLASH_PNG",
+                "type": "png"
+            },
+            {
                 "file": "images/loading.png",
                 "name": "IMAGES_LOADING_PNG",
                 "type": "png"
@@ -109,7 +119,7 @@
     "shortName": "WunderPebble",
     "uuid": "4513f443-59f3-4cf6-a9ca-1c23b18e1224",
     "versionCode": 1,
-    "versionLabel": "0.6",
+    "versionLabel": "0.62",
     "watchapp": {
         "watchface": false
     }
