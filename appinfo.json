@@ -119,7 +119,7 @@
     "shortName": "WunderPebble",
     "uuid": "4513f443-59f3-4cf6-a9ca-1c23b18e1224",
     "versionCode": 1,
-    "versionLabel": "0.62",
+    "versionLabel": "0.70",
     "watchapp": {
         "watchface": false
     }

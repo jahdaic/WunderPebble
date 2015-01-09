@@ -16,6 +16,7 @@ var reportingURL = "http://intrepidwebdesigns.com/WunderPebble/config/report.php
 var refreshed = 0;
 var taskItems = 0;
 var listsList = {inbox: 'Inbox', today: 'Today', week: 'Week'};
+var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // CONFIGURATION
 Settings.config(
@@ -97,7 +98,7 @@ noConfig.on('select', function(e)
 		}
 		catch(err)
 		{
-			reportError(err);
+			reportError(err.message);
 		}
 		
 		listMenu.show();
@@ -117,7 +118,7 @@ listMenu.on('select', function(e)
 	}
 	catch(err)
 	{
-		reportError(err);
+		reportError(err.message);
 	}
 	
 	onRefresh(function() {
@@ -143,7 +144,15 @@ taskMenu.on('select', function(e)
 {
 	console.log('Selected Task: ' + e.item.title);
 	
-	displayTask(e.item.data);
+	try
+	{
+		displayTask(e.item.data);
+	}
+	catch(err)
+	{
+		reportError(err.message);
+	}
+	
 	task.show();
 });
 
@@ -168,7 +177,7 @@ if(typeof Settings.option('token') !== 'undefined' && Settings.option('token') !
 	}
 	catch(err)
 	{
-		reportError(err);
+		reportError(err.message);
 	}
 	
 	onRefresh(function() {
@@ -193,53 +202,61 @@ function getLists()
 	},
 	function(data)
 	{
-		console.log('Lists Data: ' + JSON.stringify(data));
-		
-		var lists = [
-			{
-				title: 'Inbox',
-				icon: 'images/inbox.png',
-				id: 'inbox'
-			},
-			{
-				title: 'Today',
-				icon: 'images/today.png',
-				id: 'today'
-			},
-			{
-				title: 'Week',
-				icon: 'images/week.png',
-				id: 'week'
-			}
-		];
-		
-		for (var i = 0; i < data.length; i++)
+		try
 		{
-			var icon = 'images/list.png';//(data[i].local_identifier) ? 'images/group.png' : 'images/list.png';
-			
-			lists.push(
-			{
-				title: data[i].title,
-				icon: icon,
-				id: data[i].id
-			});
-			
-			listsList[data[i].id] = data[i].title;
-		}
+			console.log('Lists Data: ' + JSON.stringify(data));
 
-		listMenu.items(0, lists);
-		
-		refreshed = 1;
-		
-		console.log('Done Getting Lists');
+			var lists = [
+				{
+					title: 'Inbox',
+					icon: 'images/inbox.png',
+					id: 'inbox'
+				},
+				{
+					title: 'Today',
+					icon: 'images/today.png',
+					id: 'today'
+				},
+				{
+					title: 'Week',
+					icon: 'images/week.png',
+					id: 'week'
+				}
+			];
+
+			for (var i = 0; i < data.length; i++)
+			{
+				var icon = 'images/list.png';//(data[i].local_identifier) ? 'images/group.png' : 'images/list.png';
+
+				lists.push(
+				{
+					title: data[i].title,
+					icon: icon,
+					id: data[i].id
+				});
+
+				listsList[data[i].id] = data[i].title;
+			}
+
+			listMenu.items(0, lists);
+
+			refreshed = 1;
+
+			console.log('Done Getting Lists');
+		}
+		catch(err)
+		{
+			reportError(err.message);
+		}
 	},
 	function(error) {
 		console.log('Getting Lists Failed: ' + JSON.stringify(error));
+		reportError(JSON.stringify(error));
 	});
 }
 
 function getTasks(id, list)
-{
+{	
 	ajax(
 	{
 		url: base + '/me/tasks',
@@ -249,51 +266,157 @@ function getTasks(id, list)
 	},
 	function(data)
 	{
-		console.log('Tasks Data: ' + JSON.stringify(data));
-
-		var tasks = [];
-		
-		var today = new Date();
-		//today.setHours(0);
-		//today.setMinutes(0);
-		
-		var tomorrow = new Date();
-		tomorrow.setDate(tomorrow.getDate() + 1);
-		
-		var yesterday = new Date();
-		yesterday.setDate(yesterday.getDate() - 1);
-		
-		var timeZone = new Date().getTimezoneOffset() / 60 * 100;
-		if(String(timeZone).length < 4) timeZone = '0' + timeZone;
-		if(timeZone.slice(2, 3) == '5') timeZone = timeZone.slice(0, 2) + "3" + timeZone.slice(3);
-		timeZone = (Number(timeZone) < 0) ? ('+' + timeZone) : ('-' + timeZone);
-		timeZone = timeZone.slice(0, 3) + ":" + timeZone.slice(3);
-		
-		if(id == 'today')
+		try
 		{
-			for (var i = 0; i < data.length; i++)
+			console.log('Tasks Data: ' + JSON.stringify(data));
+
+			var today = new Date();
+
+			var tomorrow = new Date();
+			tomorrow.setDate(tomorrow.getDate() + 1);
+
+			var yesterday = new Date();
+			yesterday.setDate(yesterday.getDate() - 1);
+
+			var timeZone = new Date().getTimezoneOffset() / 60 * 100;
+			if(String(timeZone).length < 4) timeZone = '0' + timeZone;
+			if(timeZone.slice(2, 3) == '5') timeZone = timeZone.slice(0, 2) + "3" + timeZone.slice(3);
+			timeZone = (Number(timeZone) < 0) ? ('+' + timeZone) : ('-' + timeZone);
+			timeZone = timeZone.slice(0, 3) + ":" + timeZone.slice(3);
+
+			if(id == 'today')
 			{
-				if(data[i].due_date && data[i].title)
+				var taskSections = {sections: []};						
+				var sectionsList = [];
+						
+				for (var i = 0; i < data.length; i++)
 				{
-					var dateString = data[i].due_date + 'T00:00' + timeZone;
-					var date = new Date(dateString);
-					
-					if(date.getTime() <= today.getTime() && data[i].completed_at === null)
+					if(data[i].due_date && data[i].title)
+					{
+						var dateString = data[i].due_date + 'T00:00' + timeZone;
+						var date = new Date(dateString);
+
+						if(date.getTime() <= today.getTime() && data[i].completed_at === null)
+						{
+							taskItems++;
+
+							var icon = (data[i].starred) ? 'images/star.png' : 'images/task.png';
+														
+							if( sectionsList.indexOf( listsList[ data[i].list_id ] ) == -1 )
+							{	
+								sectionsList.push( listsList[data[i].list_id] );
+								taskSections.sections.push( {title: listsList[data[i].list_id], items:[]} );
+								taskSections.sections[sectionsList.indexOf(listsList[data[i].list_id])].items.push(
+								{
+									title: data[i].title,
+									subtitle: 'Today',
+									icon: icon,
+									data: data[i]
+								});
+							}
+							else
+							{
+								taskSections.sections[sectionsList.indexOf(listsList[data[i].list_id])].items.push(
+								{
+									title: data[i].title,
+									subtitle: 'Today',
+									icon: icon,
+									data: data[i]
+								});
+							}
+						}
+					}
+				}
+				
+				taskMenu = new UI.Menu(taskSections);
+			}
+			else if(id == 'week')
+			{
+				var week = new Date();
+				week.setDate(week.getDate() + 6);
+				
+				var i = today.getDay();
+
+				var taskSections = {
+					sections: [
+						{title: 'Today', items:[]},
+						{title: 'Tomorrow', items:[]},
+						{title: days[i+2-((i+2>6)?7:0)], items:[]},
+						{title: days[i+3-((i+3>6)?7:0)], items:[]},
+						{title: days[i+4-((i+4>6)?7:0)], items:[]},
+						{title: days[i+5-((i+5>6)?7:0)], items:[]},
+						{title: days[i+6-((i+6>6)?7:0)], items:[]},
+					]
+				};
+
+				for (var i = 0; i < data.length; i++)
+				{
+					if(data[i].due_date && data[i].title)
+					{
+						var dateString = data[i].due_date + 'T00:00' + timeZone;
+						var date = new Date(dateString);
+
+						if(date.getTime() < week.getTime() && data[i].completed_at === null)
+						{
+							taskItems++;
+
+							var icon = (data[i].starred) ? 'images/star.png' : 'images/task.png';
+
+							var index = ( date.getTime() < today.getTime() ) ? 0 : ( date.getDay() - today.getDay() + (((date.getDay() - today.getDay()) < 0) ? 7 : 0 ) );
+
+							console.log(data[i].title + ' - ' + index);
+
+							taskSections.sections[index].items.push(
+							{
+								title: data[i].title,
+								subtitle: listsList[data[i].list_id],
+								icon: icon,
+								data: data[i]
+							});
+						}
+					}
+				}
+
+				// loop through removing empty sections
+				for (var i = 0; i < taskSections.sections.length; i++)
+				{
+					if(!taskSections.sections[i].items.length)
+					{
+						taskSections.sections.splice(i, 1);
+						i--;
+					}
+				}
+
+				taskMenu = new UI.Menu(taskSections);			
+			}
+			else
+			{
+				taskMenu = new UI.Menu({sections: [{items:[]}]});
+				var tasks = [];
+				
+				for (var i = 0; i < data.length; i++)
+				{
+					if(data[i].list_id == id && data[i].completed_at === null && data[i].deleted_at === null && data[i].parent_id === null)
 					{
 						taskItems++;
-						
-						if(date.toDateString() == today.toDateString())
+
+						var dateString = data[i].due_date + 'T00:00' + timeZone;
+						var date = new Date(dateString);
+
+						if(!data[i].due_date)
+							date = '';
+						else if(date.toDateString() == today.toDateString())
 							date = 'Today';
 						else if(date.toDateString() == tomorrow.toDateString())
 							date = 'Tomorrow';
 						else if(date.toDateString() == yesterday.toDateString())
-							date = 'Yesterday';
+								date = 'Yesterday';
 						else
 						{
 							date = date.toISOString().slice(0, 10).split('-');
 							date = date[1] + '.' + date[2] + '.' + date[0];
 						}
-						
+
 						var icon = (data[i].starred) ? 'images/star.png' : 'images/task.png';
 
 						tasks.push(
@@ -302,99 +425,45 @@ function getTasks(id, list)
 							subtitle: date,
 							icon: icon,
 							data: data[i]
-						});
+						});	
 					}
 				}
+
+				taskMenu.section(0, {title: list, items: []});
+				taskMenu.items(0, tasks);
 			}
-		}
-		else if(id == 'week')
-		{
-			for (var i = 0; i < data.length; i++)
+
+			taskMenu.id = id;
+			taskMenu.list = list;
+
+			taskMenu.on('select', function(e)
 			{
-				if(data[i].due_date && data[i].title)
-				{
-					var dateString = data[i].due_date + 'T00:00' + timeZone;
-					var date = new Date(dateString);
-					
-					// Rework to show 7 days to future, maybe divide by day/section
-					if((date.getWeek() == today.getWeek() || date.getTime() <= today.getTime()) && data[i].completed_at === null)
-					{
-						taskItems++;
-						
-						if(date.toDateString() == today.toDateString())
-							date = 'Today';
-						else if(date.toDateString() == tomorrow.toDateString())
-							date = 'Tomorrow';
-						else if(date.toDateString() == yesterday.toDateString())
-							date = 'Yesterday';
-						else
-						{
-							date = date.toISOString().slice(0, 10).split('-');
-							date = date[1] + '.' + date[2] + '.' + date[0];
-						}
-						
-						var icon = (data[i].starred) ? 'images/star.png' : 'images/task.png';
+				console.log('Selected Task: ' + e.item.title);
 
-						tasks.push(
-						{
-							title: data[i].title,
-							subtitle: listsList[data[i].list_id],
-							icon: icon,
-							data: data[i]
-						});
-					}
+				try
+				{
+					displayTask(e.item.data);
 				}
-			}
+				catch(err)
+				{
+					reportError(err.message);
+				}
+
+				task.show();
+			});
+
+			refreshed = 1;
+
+			console.log('Done Getting '+ taskItems +' Tasks');
 		}
-		else
+		catch(err)
 		{
-			for (var i = 0; i < data.length; i++)
-			{
-				if(data[i].list_id == id && data[i].completed_at === null && data[i].deleted_at === null && data[i].parent_id === null)
-				{
-					taskItems++;
-					
-					var dateString = data[i].due_date + 'T00:00' + timeZone;
-					var date = new Date(dateString);
-					
-					if(!data[i].due_date)
-						date = '';
-					else if(date.toDateString() == today.toDateString())
-						date = 'Today';
-					else if(date.toDateString() == tomorrow.toDateString())
-						date = 'Tomorrow';
-					else if(date.toDateString() == yesterday.toDateString())
-							date = 'Yesterday';
-					else
-					{
-						date = date.toISOString().slice(0, 10).split('-');
-						date = date[1] + '.' + date[2] + '.' + date[0];
-					}
-					
-					var icon = (data[i].starred) ? 'images/star.png' : 'images/task.png';
-
-					tasks.push(
-					{
-						title: data[i].title,
-						subtitle: date,
-						icon: icon,
-						data: data[i]
-					});	
-				}
-			}
+			reportError(err.message);
 		}
-
-		taskMenu.section(0, {title: list, items: []});
-		taskMenu.items(0, tasks);
-		taskMenu.id = id;
-		taskMenu.list = list;
-		
-		refreshed = 1;
-		
-		console.log('Done Getting '+ taskItems +' Tasks');
 	},
 	function(error) {
 		console.log('Getting Tasks Failed: ' + JSON.stringify(error));
+		reportError(JSON.stringify(error));
 	});
 }
 
@@ -559,6 +628,10 @@ function onRefresh(callback)
 
 function reportError(error)
 {
+	console.debug(error);
+	
+	var today = new Date();
+
 	if(Settings.option('reporting'))
 	{
 		ajax(
@@ -566,13 +639,11 @@ function reportError(error)
 			url: reportingURL,
 			type: 'string',
 			method: 'post',
-			data: {error: error}
+			data: {error: '[' + Settings.option('settings').id + '] ' + today.toISOString() + ' - ' + error}
 		},
 		function(data)
 		{
 			console.log('Error Reported');
-
-
 			console.log(data);
 		},
 		function(error) {
