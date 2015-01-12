@@ -15,6 +15,7 @@ var base = "https://api.wunderlist.com";
 var reportingURL = "http://intrepidwebdesigns.com/WunderPebble/config/report.php"
 var refreshed = 0;
 var taskItems = 0;
+var shares = [];
 var listsList = {inbox: 'Inbox', today: 'Today', week: 'Week'};
 var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -190,70 +191,79 @@ else
 	noConfig.show();
 }
 
+
 // DATA ACCESS FUNCTIONS
 function getLists()
 {
-	ajax(
-	{
-		url: base + '/me/lists',
-		type: 'json',
-		method: 'get',
-		headers: { Authorization: 'Bearer ' + Settings.option('token') }
-	},
-	function(data)
-	{
-		try
+	getShares(function()
+	{	
+		ajax(
 		{
-			console.log('Lists Data: ' + JSON.stringify(data));
-
-			var lists = [
-				{
-					title: 'Inbox',
-					icon: 'images/inbox.png',
-					id: 'inbox'
-				},
-				{
-					title: 'Today',
-					icon: 'images/today.png',
-					id: 'today'
-				},
-				{
-					title: 'Week',
-					icon: 'images/week.png',
-					id: 'week'
-				}
-			];
-
-			for (var i = 0; i < data.length; i++)
+			url: base + '/me/lists',
+			type: 'json',
+			method: 'get',
+			headers: { Authorization: 'Bearer ' + Settings.option('token') },
+			cache: false
+		},
+		function(data)
+		{
+			try
 			{
-				var icon = 'images/list.png';//(data[i].local_identifier) ? 'images/group.png' : 'images/list.png';
+				console.log('Lists Data: ' + JSON.stringify(data));
 
-				lists.push(
+				var lists = [
+					{
+						title: 'Inbox',
+						icon: 'images/inbox.png',
+						id: 'inbox'
+					},
+					{
+						title: 'Today',
+						icon: 'images/today.png',
+						id: 'today'
+					},
+					{
+						title: 'Week',
+						icon: 'images/week.png',
+						id: 'week'
+					}
+				];
+
+				for (var i = 0; i < data.length; i++)
 				{
-					title: data[i].title,
-					icon: icon,
-					id: data[i].id
-				});
+					var icon = ( shares.indexOf( data[i].id ) > -1 ) ? 'images/group.png' : 'images/list.png';
 
-				listsList[data[i].id] = data[i].title;
+					lists.push(
+					{
+						title: data[i].title,
+						icon: icon,
+						id: data[i].id,
+						position: data[i].position
+					});
+
+					listsList[data[i].id] = data[i].title;
+				}
+				
+				lists.sort(sortItems);
+
+				listMenu.items(0, lists);
+
+				refreshed = 1;
+
+				console.log('Done Getting Lists');
 			}
-
-			listMenu.items(0, lists);
-
-			refreshed = 1;
-
-			console.log('Done Getting Lists');
-		}
-		catch(err)
-		{
-			reportError(err.message);
-		}
-	},
-	function(error) {
-		console.log('Getting Lists Failed: ' + JSON.stringify(error));
-		reportError(JSON.stringify(error));
+			catch(err)
+			{
+				reportError(err.message);
+			}
+		},
+		function(error) {
+			console.log('Getting Lists Failed: ' + JSON.stringify(error));
+			reportError(JSON.stringify(error));
+		});	
 	});
 }
+
 
 function getTasks(id, list)
 {	
@@ -278,11 +288,13 @@ function getTasks(id, list)
 			var yesterday = new Date();
 			yesterday.setDate(yesterday.getDate() - 1);
 
-			var timeZone = new Date().getTimezoneOffset() / 60 * 100;
-			if(String(timeZone).length < 4) timeZone = '0' + timeZone;
-			if(timeZone.slice(2, 3) == '5') timeZone = timeZone.slice(0, 2) + "3" + timeZone.slice(3);
-			timeZone = (Number(timeZone) < 0) ? ('+' + timeZone) : ('-' + timeZone);
-			timeZone = timeZone.slice(0, 3) + ":" + timeZone.slice(3);
+			var timeZone = new Date().toTimeString().slice(12, 17);
+			timeZone = String(timeZone).slice(0, 3) + ":" + String(timeZone).slice(3);
+			console.log(timeZone);
+			//if(String(timeZone).length < 4) timeZone = '0' + String(timeZone);
+			//if(String(timeZone).slice(2, 3) == '5') timeZone = String(timeZone).slice(0, 2) + "3" + String(timeZone).slice(3);
+			//timeZone = (Number(timeZone) < 0) ? ('+' + String(timeZone)) : ('-' + String(timeZone));
+			//timeZone = String(timeZone).slice(0, 3) + ":" + String(timeZone).slice(3);
 
 			if(id == 'today')
 			{
@@ -327,7 +339,6 @@ function getTasks(id, list)
 						}
 					}
 				}
-				
 				taskMenu = new UI.Menu(taskSections);
 			}
 			else if(id == 'week')
@@ -386,7 +397,6 @@ function getTasks(id, list)
 						i--;
 					}
 				}
-
 				taskMenu = new UI.Menu(taskSections);			
 			}
 			else
@@ -424,11 +434,13 @@ function getTasks(id, list)
 							title: data[i].title,
 							subtitle: date,
 							icon: icon,
-							data: data[i]
+							data: data[i],
+							position: data[i].position
 						});	
 					}
 				}
-
+				
+				tasks.sort(sortItems);
 				taskMenu.section(0, {title: list, items: []});
 				taskMenu.items(0, tasks);
 			}
@@ -467,6 +479,7 @@ function getTasks(id, list)
 	});
 }
 
+
 function displayTask(data)
 {
 	// Clear Window
@@ -474,11 +487,14 @@ function displayTask(data)
 		task.remove(element);
 	});
 	
-	var timeZone = new Date().getTimezoneOffset() / 60 * 100;
-	if(String(timeZone).length < 4) timeZone = '0' + timeZone;
-	if(timeZone.slice(2, 3) == '5') timeZone = timeZone.slice(0, 2) + "3" + timeZone.slice(3);
-	timeZone = (Number(timeZone) < 0) ? ('+' + timeZone) : ('-' + timeZone);
-	timeZone = timeZone.slice(0, 3) + ":" + timeZone.slice(3);
+	var timeZone = new Date().toTimeString().slice(12, 17);
+	timeZone = String(timeZone).slice(0, 3) + ":" + String(timeZone).slice(3);
+	console.log(timeZone);
+	//var timeZone = new Date().getTimezoneOffset() / 60 * 100;
+	//if(String(timeZone).length < 4) timeZone = '0' + String(timeZone);
+	//if(String(timeZone).slice(2, 3) == '5') timeZone = String(timeZone).slice(0, 2) + "3" + String(timeZone).slice(3);
+	//timeZone = (Number(timeZone) < 0) ? ('+' + String(timeZone)) : ('-' + String(timeZone));
+	//timeZone = String(timeZone).slice(0, 3) + ":" + String(timeZone).slice(3);
 	
 	var dateString = data.due_date + 'T00:00' + timeZone;
 	var displayDate = new Date(dateString);
@@ -555,6 +571,7 @@ function displayTask(data)
 	task.data = data;
 }
 
+
 function completeTask(id)
 {
 	var date = new Date().toISOString();
@@ -571,15 +588,13 @@ function completeTask(id)
 	function(data)
 	{
 		console.log('Task Data: ' + JSON.stringify(data));
-		
-		
-		
 		console.log('Marked Task Complete');
 	},
 	function(error) {
 		console.log('Completing Task Failed: ' + JSON.stringify(error));
 	});
 }
+
 
 function deleteTask(id)
 {
@@ -598,13 +613,44 @@ function deleteTask(id)
 	function(data)
 	{
 		console.log('Task Data: ' + JSON.stringify(data));
-		
-		
-		
 		console.log('Deleted Task');
 	},
 	function(error) {
 		console.log('Deleting Task Failed: ' + JSON.stringify(error));
+	});
+}
+
+function getShares(callback)
+{
+	ajax(
+	{
+		url: base + '/me/shares',
+		type: 'json',
+		method: 'get',
+		headers: { Authorization: 'Bearer ' + Settings.option('token') }
+	},
+	function(data)
+	{
+		try
+		{
+			for (var i = 0; i < data.length; i++)
+			{
+				if( shares.indexOf( data[i].resource_id ) == -1 && typeof data[i].deleted_at === 'undefined' )
+				{
+					shares.push( data[i].resource_id );
+				}
+			}		
+			console.log(JSON.stringify(shares));
+			console.log('Got Shares');
+			if(typeof callback !== 'undefined') callback();
+		}
+		catch(err)
+		{
+			reportError(err.message);
+		}
+	},
+	function(error) {
+		console.log('Getting Shares Failed: ' + JSON.stringify(error));
 	});
 }
 
@@ -625,6 +671,18 @@ function onRefresh(callback)
 		}
 	}, 200);
 }
+
+
+function sortItems(a, b)
+{
+	if (a.position < b.position)
+		return -1;
+	if (a.position > b.position)
+		return 1;
+	// a must be equal to b
+		return 0;
+}
+
 
 function reportError(error)
 {
@@ -653,16 +711,3 @@ function reportError(error)
 	else
 		return false;
 }
-
-Date.prototype.getWeek = function()
-{ 
-    var determinedate = new Date(); 
-    determinedate.setFullYear(this.getFullYear(), this.getMonth(), this.getDate()); 
-    var D = determinedate.getDay(); 
-    if(D === 0) D = 7; 
-    determinedate.setDate(determinedate.getDate() + (4 - D)); 
-    var YN = determinedate.getFullYear(); 
-    var ZBDoCY = Math.floor((determinedate.getTime() - new Date(YN, 0, 1, -6)) / 86400000); 
-    var WN = 1 + Math.floor(ZBDoCY / 7); 
-    return WN; 
-};
