@@ -29,6 +29,12 @@
                 "type": "font"
             },
             {
+                "file": "images/icon.png",
+                "menuIcon": true,
+                "name": "IMAGES_ICON_PNG",
+                "type": "png"
+            },
+            {
                 "file": "images/error.png",
                 "name": "IMAGES_ERROR_PNG",
                 "type": "png"
@@ -107,19 +113,13 @@
                 "file": "images/group.png",
                 "name": "IMAGES_GROUP_PNG",
                 "type": "png"
-            },
-            {
-                "file": "images/icon.png",
-                "menuIcon": true,
-                "name": "IMAGES_ICON_PNG",
-                "type": "png"
             }
         ]
     },
     "shortName": "WunderPebble",
     "uuid": "4513f443-59f3-4cf6-a9ca-1c23b18e1224",
     "versionCode": 1,
-    "versionLabel": "0.82",
+    "versionLabel": "1.0",
     "watchapp": {
         "watchface": false
     }
