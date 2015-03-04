@@ -10,14 +10,16 @@ WunderPebble is a Wunderlist client for the Pebble Smartwatch. It was written us
 ## Roadmap
 These are some of the features that are planned for future releases. There's no timescale since WunderPebble is developed on my free time, but I will try my best to get to everything quickly.
 
-* Port Over to Pebble SDK 3.0
-* Redesign Task Detail Screen
-* Create color version for Pebble Time
+1. Port Over to Pebble SDK 3.0
+2. Speed and Reliability Improvements (keep sending in feedback)
+2. Redesign Task Detail Screen
+3. Create color version for Pebble Time
 
 ## Features Under Consideration
 - Reordering Lists
 - Using Pebble Time Microphone to Add Tasks
 - Pebble Time Timeline integration
+- Settings
 
 ##Changelog
 
