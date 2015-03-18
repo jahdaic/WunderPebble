@@ -4,7 +4,8 @@
  * http://jahdaicintron.com/wunderpebble
  */
 // DEBUGGING
-var DEBUG = true;
+var DEBUG = false;
+var VERSION = 1.2;
 
 // INCLUDES
 var UI       = require( "ui" );
@@ -12,18 +13,26 @@ var ajax     = require( "ajax" );
 var Settings = require( "settings" );
 var Vector2  = require( "vector2" );
 
-// GLOBAL VARIABLE
+// GLOBAL VARIABLES
 var api           = "https://a.wunderlist.com/api/v1";
-var clientID      = "";
-var header        = "";
+var clientID      = "4d4eece3b87fd2a63a2d";
+var header        = { "X-Access-Token": Settings.option( "token" ), "X-Client-ID": clientID, contentType: "application/json;" };
 var reporting     = "http://jahdaicintron.com/wunderpebbleconfig/report.php";
-var refreshed     = false;
 var taskItems     = 0;
 var shares        = [];
+var folders       = {};
 var listPositions = [];
 var taskPositions = [];
+var folderLists   = {};
 var listsList     = { inbox: "Inbox", today: "Today", week: "Week" };
 var days          = [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
+var months        = [ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" ];
+var monthsShort   = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ];
+var today;
+var tomorrow;
+var yesterday;
+var timeZone;
+
 
 // CONFIGURATION
 Settings.config(
@@ -47,7 +56,10 @@ Settings.config(
 		Settings.option( "settings", data );
 		
 		if( "access_token" in data ) Settings.option( "token", data.access_token );
-		if( "token_type" in data ) Settings.option( "token_type", data.token_type );
+
+		header = { "X-Access-Token": Settings.option( "token" ), "X-Client-ID": clientID, contentType: "application/json; charset=utf-8" };
+
+		getUserData();
 	}
 );
 
@@ -70,6 +82,7 @@ var error = new UI.Card(
 var splash = new UI.Card( { banner: "images/splash.png" } );
 var loading = new UI.Card( { banner: "images/loading.png" } );
 var listMenu = new UI.Menu( {sections: [{items:[]}] } );
+var sublistMenu = new UI.Menu( {sections: [{items:[]}] } );
 var taskMenu = new UI.Menu( {sections: [{items:[]}] } );
 var task = new UI.Window({
 	//action: {
@@ -80,7 +93,7 @@ var task = new UI.Window({
 	backgroundColor: "white"
 });
 
-// ICON
+// ICONS
 var taskCheckbox = new UI.Image(
 {
 	position: new Vector2( 7, 11 ),
@@ -96,62 +109,82 @@ var taskStar = new UI.Image(
 });
 
 // EVENT LISTENERS
-noConfig.on( "select", function( e )
-{
-	if( typeof Settings.option( "token" ) !== "undefined" && Settings.option( "token" ) !== null )
-	{
-		try
-		{
-			header = { "X-Access-Token": Settings.option( "token" ), "X-Client-ID": clientID, contentType: "application/json; charset=utf-8" };
-			getShares( getListPositions( getLists() ) );
-		}
-		catch( err )
-		{
-			reportError( err.message );
-		}
-		
-		listMenu.show();
-		noConfig.hide();
-	}
-});
+noConfig.on( "select", programStart );
 
-listMenu.on( "select", function(e)
-{
-	console.log( "Selected List Item: " + e.item.title );
+listMenu.on( "select", function( e ) {
+	console.log( "Viewing Tasks For: " + e.item.title );
 	
 	loading.show();
 	
 	try
 	{
-		getTaskPositions( e.item.id, getTasks( e.item.id, e.item.title ) );
-	}
-	catch( err )
-	{
-		reportError( err.message );
-	}
-	
-	onRefresh( function() {
-		if( taskItems )
+		if(e.item.type == 'folder')
 		{
-			console.log( "We have items" );
-			taskMenu.show();
-			loading.hide();
+			getLists( e.item.id, function() {
+				sublistMenu.show();
+				loading.hide();
+			});
 		}
 		else
 		{
-			console.log( "No items" );
-			error.body( "\nNo tasks were found for this list" );
-			error.show();
-			loading.hide();
+			getTaskPositions( e.item.id, function() {
+				getTasks( e.item.id, e.item.title, function() {
+					if( taskItems )
+					{
+						taskMenu.show();
+						loading.hide();
+					}
+					else
+					{
+						error.body( "\nNo tasks were found for this list" );
+						error.show();
+						loading.hide();
+					}
+					
+					taskItems = 0;
+				});
+			});
 		}
-		
-		taskItems = 0;
-	});
+	}
+	catch( err )
+	{
+		reportError( "List Selected: " + err.message );
+	}
 });
 
-taskMenu.on( "select", function( e )
-{
-	console.log( "Selected Task: " + e.item.title );
+sublistMenu.on( "select", function( e ) {
+	console.log( "Viewing Tasks For: " + e.item.title );
+	
+	loading.show();
+	
+	try
+	{
+		getTaskPositions( e.item.id, function() {
+			getTasks( e.item.id, e.item.title, function() {
+				if( taskItems )
+				{
+					taskMenu.show();
+					loading.hide();
+				}
+				else
+				{
+					error.body( "\nNo tasks were found for this list" );
+					error.show();
+					loading.hide();
+				}
+				
+				taskItems = 0;
+			});
+		});
+	}
+	catch( err )
+	{
+		reportError( "List Selected: " + err.message );
+	}
+});
+
+taskMenu.on( "select", function( e ) {
+	if(DEBUG) console.log( "Selected Task: " + e.item.title );
 	
 	try
 	{
@@ -159,54 +192,54 @@ taskMenu.on( "select", function( e )
 	}
 	catch( err )
 	{
-		reportError( err.message );
-	}
-	
-	task.show();
+		reportError( "Task Selected: " + err.message );
+	}	
 });
 
-//task.on("click", "up", function(e) {
-//	markTaskComplete(task.id);
-//	getTasks(taskMenu.id, taskMenu.list);
-//});
-
-//task.on("click", "down", function(e) {
-//	deleteTask(task.id);
-//	getTasks(taskMenu.id, taskMenu.list);
-//});
-
 // PROGRAM START
-if( typeof Settings.option( "token" ) !== "undefined" && Settings.option( "token" ) !== null )
+function programStart()
 {
-	splash.show();
-	
-	try
+	if( typeof Settings.option( "token" ) !== "undefined" && Settings.option( "token" ) !== null )
 	{
-		header = { "X-Access-Token": Settings.option( "token" ), "X-Client-ID": clientID, contentType: "application/json; charset=utf-8" };
-		getShares( getListPositions( getLists() ) );
+		splash.show();
+		noConfig.hide();
+
+		if( Settings.data( "user" ) === null )
+			getUserData();
+
+		try
+		{
+			getListPositions( function() {
+				getShares( function() {
+					getLists( null, function() {
+						listMenu.show();
+						splash.hide();
+					});
+				});
+			});
+		}
+		catch( err )
+		{
+			reportError( "Program Start: " + err.message );
+		}
 	}
-	catch( err )
+	else
 	{
-		reportError( err.message );
+		noConfig.show();
 	}
-	
-	onRefresh( function() {
-		listMenu.show();
-		splash.hide();
-	});
 }
-else
-{
-	noConfig.show();
-}
+
+programStart();
 
 
 // DATA ACCESS FUNCTIONS
-function getLists()
+function getLists( folder, callback )
 {
+	if(DEBUG) console.log( "Getting Folders" );
+
 	ajax(
 	{
-		url:     api + "/lists",
+		url:     api + "/folders",
 		type:    "json",
 		method:  "get",
 		headers: header,
@@ -214,308 +247,486 @@ function getLists()
 	},
 	function( data )
 	{
+		folderLists = {};
+
+		for ( var i = 0; i < data.length; i++ )
+		{
+			folders[ data[i].id ] = data[i];
+
+			for ( var j = 0; j < data[i].list_ids.length; j++ )
+			{
+				folderLists[ data[i].list_ids[j] ] = data[i].id;
+			}
+		}
+
+		if(DEBUG) console.log( "Folders: " + JSON.stringify( folders ) );	
+		if(DEBUG) console.log( "Folder List: " + JSON.stringify( folderLists ) );	
+
+		if(DEBUG) console.log( "Getting Lists" );	
+		
+		ajax(
+		{
+			url:     api + "/lists",
+			type:    "json",
+			method:  "get",
+			headers: header,
+			cache:   false
+		},
+		function( data )
+		{
+			if(DEBUG) console.log( "Lists: " + JSON.stringify( data ) );
+			if(DEBUG) console.log( "Got Lists" );
+
+			var lists = data;
+
+			if( folder === null )
+			{
+				displayLists( lists, false );
+			}
+			else
+			{
+				for ( var i = 0; i < lists.length; i++ )
+				{					
+					if( folders[ folder ].list_ids.indexOf( lists[i].id ) == -1 )
+					{
+						lists.splice( i, 1 );
+						i--;
+					}
+				}
+
+				console.log( "Lists for Folder: " + JSON.stringify( lists ) );
+
+				displayLists( lists, folders[ folder ].title );
+			}
+
+			if( typeof callback !== "undefined" ) callback();
+		},
+		function( error )
+		{
+			if(DEBUG) console.log( "Getting Lists Failed: " + JSON.stringify( error ) );		
+			reportError( "Getting Lists: " + JSON.stringify( error ) );
+		});
+	},
+	function( error )
+	{
+		if(DEBUG) console.log( "Getting Folders Failed: " + JSON.stringify( error ) );		
+		reportError( "Getting Folders: " + JSON.stringify( error ) );
+	});
+}
+
+function displayLists( lists, sublist )
+{
+	if(DEBUG) console.log( "Displaying Lists" );
+	
+	try
+	{
+		var menu = [];
+
+		if( !sublist )
+		{
+			var menu = [
+				{
+					title: "Inbox",
+					icon: "images/inbox.png",
+					id: "inbox",
+					type: "list"
+				},
+				{
+					title: "Today",
+					icon: "images/today.png",
+					id: "today",
+					type: "smartlist"
+				},
+				{
+					title: "Week",
+					icon: "images/week.png",
+					id: "week",
+					type: "smartlist"
+				}
+			];
+		}
+
+		var foldersAdded = [];
+
+		for ( var i = 0; i < lists.length; i++ )
+		{
+			if( lists[i].title == "inbox" )
+			{
+				menu[0].id = lists[i].id;
+				listsList[ lists[i].id ] = "Inbox";
+			}
+			else if( lists[i].id in folderLists && !sublist )
+			{
+				if( foldersAdded.indexOf( folders[ folderLists[ lists[i].id ] ].id ) != -1 )
+					continue;
+
+				menu.push(
+				{
+					title:    folders[ folderLists[ lists[i].id ] ].title,
+					icon:     "images/folder.png",
+					id:       folders[ folderLists[ lists[i].id ] ].id,
+					position: listPositions.indexOf( lists[i].id ),
+					type: "folder"
+				});
+
+				foldersAdded.push( folders[ folderLists[ lists[i].id ] ].id );
+			}
+			else
+			{
+				menu.push(
+				{
+					title:    lists[i].title,
+					icon:     ( shares.indexOf( lists[i].id ) > -1 ) ? "images/group.png" : "images/list.png",
+					id:       lists[i].id,
+					position: listPositions.indexOf( lists[i].id ),
+					type: "list"
+				});
+
+				listsList[ lists[i].id ] = lists[i].title;
+			}
+		}
+
+		menu.sort( sortItems );
+
+		if( sublist )
+			sublistMenu.section(0, {title: sublist, items: menu});
+			// sublistMenu.items( 0, menu );
+		else
+			listMenu.items( 0, menu );
+
+		if(DEBUG) console.log( "Displayed Lists" );
+	}
+	catch( err )
+	{
+		reportError( "Displaying Lists: " + err.message );
+	}
+}
+
+function getTasks( id, list, callback )
+{	
+	if(DEBUG) console.log( "Gettings Tasks" );	
+
+	if( !isNaN( id ) )
+	{
+		ajax(
+		{
+			url:     api + "/tasks?list_id=" + id + "&completed=false",
+			type:    "json",
+			method:  "get",
+			headers: header,
+			cache:   false
+		},
+		function( data )
+		{
+			try
+			{
+				displayTasks( id, list, data );
+
+				if( typeof callback !== "undefined" ) callback();
+			}
+			catch( err )
+			{
+				reportError( "Getting Tasks: " + err.message );
+			}
+		},
+		function( err )
+		{
+			console.log( "Getting Tasks Failed: " + JSON.stringify( err ) );
+			reportError( "Getting Tasks: " + JSON.stringify( err ) );
+		});
+	}
+	else
+	{
+		var tasks = [];
+	
+		var semaphore = 0;
+		
+		for ( var i = 0; i < listPositions.length; i++ )
+		{
+			semaphore++;
+			if(DEBUG) console.log( "Running Task: "+ semaphore );
+			
+			ajax(
+			{
+				url:     api + "/tasks?list_id=" + listPositions[i] + "&completed=false",
+				type:    "json",
+				method:  "get",
+				headers: header,
+				cache:   false
+			},
+			function( data )
+			{
+				try
+				{
+					if( data.length > 0 ) tasks = tasks.concat( data );
+				}
+				catch( err )
+				{
+					reportError( "Getting Shares: " + err.message );
+				}
+				finally
+				{
+					semaphore--;
+					if(DEBUG) console.log( "Ending Task, " + semaphore + " Left" );
+
+					if( semaphore === 0 )
+					{
+						displayTasks( id, list, tasks );
+						if( typeof callback !== "undefined" ) callback();
+					}					
+				}
+			},
+			function( err )
+			{
+				console.log( "Getting All Tasks Failed: " + JSON.stringify( err ) );
+				
+				if( err.type != "permission_error" )
+				{
+					reportError( "Getting All Tasks: " + JSON.stringify( err ) );
+				}
+				
+				semaphore--;
+				if(DEBUG) console.log( "Ending Task, " + semaphore + " Left" );
+
+				if( semaphore === 0 )
+				{
+					displayTasks( id, list, tasks );
+					if( typeof callback !== "undefined" ) callback();
+				}
+			});
+		}
+	}
+}
+
+function displayTasks( id, list, tasks )
+{
+	if(DEBUG) console.log( "Tasks: " + JSON.stringify( tasks ) );
+	if(DEBUG) console.log( "Got " + tasks.length + " Tasks" );
+	if(DEBUG) console.log( "Displaying Tasks" );
+
+	today = new Date();
+
+	tomorrow = new Date();
+	tomorrow.setDate( tomorrow.getDate() + 1 );
+
+	yesterday = new Date();
+	yesterday.setDate( yesterday.getDate() - 1 );
+
+	timeZone = new Date().toTimeString().slice( 12, 17 );
+	timeZone = String( timeZone ).slice( 0, 3 ) + ":" + String( timeZone ).slice( 3 );
+
+	var menuItems;
+
+	if( id == "today" )
+		menuItems = displayTodayTasks( tasks );
+	else if( id == "week" )
+		menuItems = displayWeekTasks( tasks );
+	else
+		menuItems = displayListTasks( tasks, list );
+
+	taskMenu = new UI.Menu( menuItems );
+	taskMenu.id = id;
+	taskMenu.list = list;
+	
+	if(DEBUG) console.log( "Displaying Task List Object" );
+	if(DEBUG) console.log( JSON.stringify( taskMenu ) );
+
+	taskMenu.on( "select", function( e )
+	{
+		if(DEBUG) console.log( "Viewing Task: " + e.item.title );
+
 		try
 		{
-			if (DEBUG) console.log( "Lists Data: " + JSON.stringify( data ) );
+			getTask( e.item.data );
+		}
+		catch( err )
+		{
+			reportError( "Task Selected: " + err.message );
+		}
+	});
 
-			//var lists = [
-			//	{
-			//		title: "Inbox",
-			//		icon: "images/inbox.png",
-			//		id: "inbox"
-			//	},
-			//	{
-			//		title: "Today",
-			//		icon: "images/today.png",
-			//		id: "today"
-			//	},
-			//	{
-			//		title: "Week",
-			//		icon: "images/week.png",
-			//		id: "week"
-			//	}
-			//];
-			
-			var lists = [];
+	taskMenu.on( "longSelect", function( e )
+	{
+		try
+		{
+			completeTask( e );
+		}
+		catch( err )
+		{
+			reportError( "Marked Task Complete: " + err.message );
+		}
+	});
 
-			for ( var i = 0; i < data.length; i++ )
+	if(DEBUG) console.log( "Displayed " + taskItems + " Tasks" );
+}
+
+function displayTodayTasks( tasks )
+{
+	if(DEBUG) console.log( "Displaying Today Tasks" );
+
+	var taskSections = { sections: [] };						
+	var sectionsList = [];
+
+	for ( var i = 0; i < tasks.length; i++ )
+	{
+		if( tasks[i].due_date && tasks[i].title )
+		{
+			var date = new Date( tasks[i].due_date + "T00:00" + timeZone );
+
+			if( date.getTime() <= today.getTime() )
 			{
-				if ( data[i].title == "inbox" )
+				taskItems++;
+
+				var icon = ( tasks[i].starred ) ? "images/star.png" : "images/task.png";
+
+				if( sectionsList.indexOf( listsList[ tasks[i].list_id ] ) == -1 )
 				{
-					listPositions.splice( listPositions.indexOf( data[i].id), 1 );
-					listPositions.unshift( data[i].id );
-					
-					lists.push(
-					{
-						title:    "Inbox",
-						icon:     "images/inbox.png",
-						id:       data[i].id,
-						position: -1
+					sectionsList.push( listsList[ tasks[i].list_id ] );
+					taskSections.sections.push( { title: listsList[ tasks[i].list_id ], items:[] } );
+					taskSections.sections[ sectionsList.indexOf( listsList[ tasks[i].list_id ] ) ].items.push({
+						title:    tasks[i].title,
+						subtitle: "Today",
+						icon:     icon,
+						data:     tasks[i]
 					});
 				}
 				else
 				{
-					lists.push(
-					{
-						title:    data[i].title,
-						icon:     ( shares.indexOf( data[i].id ) > -1 ) ? "images/group.png" : "images/list.png",
-						id:       data[i].id,
-						position: listPositions.indexOf( data[i].id )
+					taskSections.sections[ sectionsList.indexOf( listsList[ tasks[i].list_id ] ) ].items.push({
+						title: tasks[i].title,
+						subtitle: "Today",
+						icon: icon,
+						data: tasks[i]
 					});
 				}
-
-				listsList[ data[i].id ] = data[i].title;
 			}
+		}
+	}
+	
+	return taskSections;
+}
+
+function displayWeekTasks( tasks )
+{
+	if(DEBUG) console.log( "Displaying Week Tasks" );
+
+	var week = new Date();
+	week.setDate( week.getDate() + 6 );
+
+	var i = today.getDay();
+	// var in2Days = in3Days = in4Days = in5Days = in6Days = today;
+
+	var in2Days = new Date( ( new Date() ).setDate( today.getDate() + 2 ) );
+	var in3Days = new Date( ( new Date() ).setDate( today.getDate() + 3 ) );
+	var in4Days = new Date( ( new Date() ).setDate( today.getDate() + 4 ) );
+	var in5Days = new Date( ( new Date() ).setDate( today.getDate() + 5 ) );
+	var in6Days = new Date( ( new Date() ).setDate( today.getDate() + 6 ) );
+
+	// in3Days.setDate( in3Days.getDate() + 3 );
+	// in4Days.setDate( in4Days.getDate() + 4 );
+	// in5Days.setDate( in5Days.getDate() + 5 );
+	// in6Days.setDate( in6Days.getDate() + 6 );
+
+	var taskSections = {
+		sections: [
+			{ title: "Today, " + months[ today.getMonth() ] + ". " + today.getDate(), items:[] },
+			{ title: "Tomorrow, " + months[ tomorrow.getMonth() ] + ". " + tomorrow.getDate(), items:[] },
+			{ title: days[ in2Days.getDay() ] + ", " + months[ in2Days.getMonth() ] + ". " + in2Days.getDate(), items:[] },
+			{ title: days[ in3Days.getDay() ] + ", " + months[ in3Days.getMonth() ] + ". " + in3Days.getDate(), items:[] },
+			{ title: days[ in4Days.getDay() ] + ", " + months[ in4Days.getMonth() ] + ". " + in4Days.getDate(), items:[] },
+			{ title: days[ in5Days.getDay() ] + ", " + months[ in5Days.getMonth() ] + ". " + in5Days.getDate(), items:[] },
+			{ title: days[ in6Days.getDay() ] + ", " + months[ in6Days.getMonth() ] + ". " + in6Days.getDate(), items:[] },
+		]
+	};
 			
-			lists.sort( sortItems );
-
-			listMenu.items( 0, lists );
-
-			refreshed = true;
-
-			if (DEBUG) console.log( "Done Getting Lists" );
-		}
-		catch( err )
-		{
-			reportError( err.message );
-		}
-	},
-	function( error )
+	for ( i = 0; i < tasks.length; i++ )
 	{
-		if (DEBUG) console.log( "Getting Lists Failed: " + JSON.stringify( error ) );		
-		reportError( JSON.stringify( error ) );
-	});
+		if( tasks[i].due_date && tasks[i].title )
+		{
+			var date = new Date( tasks[i].due_date + "T00:00" + timeZone );
+
+			if( date.getTime() < week.getTime() )
+			{
+				taskItems++;
+
+				var icon = ( tasks[i].starred ) ? "images/star.png" : "images/task.png";
+
+				var index = ( date.getTime() < today.getTime() ) ? 0 : ( date.getDay() - today.getDay() + ( ( ( date.getDay() - today.getDay() ) < 0 ) ? 7 : 0 ) );
+
+				if(DEBUG) console.log( tasks[i].title + " - " + index );
+
+				taskSections.sections[ index ].items.push({
+					title:    tasks[i].title,
+					subtitle: listsList[ tasks[i].list_id ],
+					icon:     icon,
+					data:     tasks[i]
+				});
+			}
+		}
+	}
+
+	// loop through removing empty sections
+	for ( i = 0; i < taskSections.sections.length; i++ )
+	{
+		if( !taskSections.sections[i].items.length )
+		{
+			taskSections.sections.splice( i, 1 );
+			i--;
+		}
+	}
+
+	return taskSections;	
 }
 
+function displayListTasks( tasks, list )
+{
+	if(DEBUG) console.log( "Displaying List Tasks" );
 
-function getTasks( id, list )
-{	
-	ajax(
+	var taskSections = { sections: [ { title: list, items:[] } ] };
+	var menu = [];
+
+	for ( var i = 0; i < tasks.length; i++ )
 	{
-		url:     api + "/tasks?list_id=" + id + "&completed=false",
-		type:    "json",
-		method:  "get",
-		headers: header,
-		cache:   false
-	},
-	function( data )
-	{
-		try
+		taskItems++;
+
+		var dateString = tasks[i].due_date + "T00:00" + timeZone;
+		var date = new Date( dateString );
+
+		if( !tasks[i].due_date )
+			date = "";
+		else if( date.toDateString() == today.toDateString() )
+			date = "Today";
+		else if( date.toDateString() == tomorrow.toDateString() )
+			date = "Tomorrow";
+		else if( date.toDateString() == yesterday.toDateString() )
+			date = "Yesterday";
+		else
 		{
-			console.log( "Tasks Data: " + JSON.stringify( data ) );
-
-			var today = new Date();
-
-			var tomorrow = new Date();
-			tomorrow.setDate( tomorrow.getDate() + 1 );
-
-			var yesterday = new Date();
-			yesterday.setDate( yesterday.getDate() - 1 );
-
-			var timeZone = new Date().toTimeString().slice( 12, 17 );
-			timeZone = String( timeZone ).slice( 0, 3 ) + ":" + String( timeZone ).slice( 3 );
-			console.log( timeZone );
-
-			if ( id == "today" )
-			{
-				var taskSections = { sections: [] };						
-				var sectionsList = [];
-						
-				for ( var i = 0; i < data.length; i++ )
-				{
-					if ( data[i].due_date && data[i].title )
-					{
-						var dateString = data[i].due_date + "T00:00" + timeZone;
-						var date = new Date( dateString );
-
-						if ( date.getTime() <= today.getTime() && data[i].completed_at === null )
-						{
-							taskItems++;
-
-							var icon = ( data[i].starred ) ? "images/star.png" : "images/task.png";
-														
-							if ( sectionsList.indexOf( listsList[ data[i].list_id ] ) == -1 )
-							{	
-								sectionsList.push( listsList[ data[i].list_id ] );
-								taskSections.sections.push( { title: listsList[ data[i].list_id ], items:[] } );
-								taskSections.sections[ sectionsList.indexOf( listsList[ data[i].list_id ] ) ].items.push(
-								{
-									title:    data[i].title,
-									subtitle: "Today",
-									icon:     icon,
-									data:     data[i]
-								});
-							}
-							else
-							{
-								taskSections.sections[ sectionsList.indexOf( listsList[ data[i].list_id ] ) ].items.push(
-								{
-									title: data[i].title,
-									subtitle: "Today",
-									icon: icon,
-									data: data[i]
-								});
-							}
-						}
-					}
-				}
-				taskMenu = new UI.Menu( taskSections );
-			}
-			else if( id == "week" )
-			{
-				var week = new Date();
-				week.setDate( week.getDate() + 6 );
-				
-				var i = today.getDay();
-
-				var taskSections = {
-					sections: [
-						{ title: "Today", items:[] },
-						{ title: "Tomorrow", items:[] },
-						{ title: days[ i + 2 - ( ( i + 2 > 6 ) ? 7 : 0 ) ], items:[] },
-						{ title: days[ i + 3 - ( ( i + 3 > 6 ) ? 7 : 0 ) ], items:[] },
-						{ title: days[ i + 4 - ( ( i + 4 > 6 ) ? 7 : 0 ) ], items:[] },
-						{ title: days[ i + 5 - ( ( i + 5 > 6 ) ? 7 : 0 ) ], items:[] },
-						{ title: days[ i + 6 - ( ( i + 6 > 6 ) ? 7 : 0 ) ], items:[] },
-					]
-				};
-
-				for ( var i = 0; i < data.length; i++ )
-				{
-					if ( data[i].due_date && data[i].title )
-					{
-						var dateString = data[i].due_date + "T00:00" + timeZone;
-						var date = new Date( dateString );
-
-						if ( date.getTime() < week.getTime() && data[i].completed_at === null )
-						{
-							taskItems++;
-
-							var icon = ( data[i].starred ) ? "images/star.png" : "images/task.png";
-
-							var index = ( date.getTime() < today.getTime() ) ? 0 : ( date.getDay() - today.getDay() + ( ( ( date.getDay() - today.getDay() ) < 0 ) ? 7 : 0 ) );
-
-							if (DEBUG) console.log( data[i].title + " - " + index );
-
-							taskSections.sections[ index ].items.push(
-							{
-								title:    data[i].title,
-								subtitle: listsList[ data[i].list_id ],
-								icon:     icon,
-								data:     data[i]
-							});
-						}
-					}
-				}
-
-				// loop through removing empty sections
-				for ( var i = 0; i < taskSections.sections.length; i++ )
-				{
-					if ( !taskSections.sections[i].items.length )
-					{
-						taskSections.sections.splice( i, 1 );
-						i--;
-					}
-				}
-				taskMenu = new UI.Menu( taskSections );			
-			}
-			else
-			{
-				taskMenu = new UI.Menu( { sections: [ { items:[] } ] } );
-				var tasks = [];
-				
-				for ( var i = 0; i < data.length; i++ )
-				{
-					if ( data[i].list_id == id && !data[i].completed )
-					{
-						taskItems++;
-
-						var dateString = data[i].due_date + "T00:00" + timeZone;
-						var date = new Date( dateString );
-
-						if ( !data[i].due_date )
-							date = "";
-						else if ( date.toDateString() == today.toDateString() )
-							date = "Today";
-						else if ( date.toDateString() == tomorrow.toDateString() )
-							date = "Tomorrow";
-						else if ( date.toDateString() == yesterday.toDateString() )
-								date = "Yesterday";
-						else
-						{
-							date = date.toISOString().slice( 0, 10 ).split( "-" );
-							date = date[1] + "." + date[2] + "." + date[0];
-						}
-
-						var icon = ( data[i].starred ) ? "images/star.png" : "images/task.png";
-
-						tasks.push(
-						{
-							title:    data[i].title,
-							subtitle: date,
-							icon:     icon,
-							data:     data[i],
-							position: taskPositions.indexOf( data[i].id )
-						});	
-					}
-				}
-				
-				tasks.sort( sortItems );
-				taskMenu.section( 0, { title: list, items: [] } );
-				taskMenu.items( 0, tasks );
-			}
-
-			taskMenu.id = id;
-			taskMenu.list = list;
-
-			taskMenu.on( "select", function( e )
-			{
-				if (DEBUG) console.log( "Selected Task: " + e.item.title );
-
-				try
-				{
-					getTask( e.item.data );
-				}
-				catch( err )
-				{
-					reportError( err.message );
-				}
-
-				task.show();
-			});
-
-			taskMenu.on( "longSelect", function( e )
-			{
-				try
-				{
-					completeTask( e );
-				}
-				catch( err )
-				{
-					reportError( err.message );
-				}
-			});
-
-			refreshed = true;
-
-			console.log( "Done Getting " + taskItems + " Tasks" );
+			date = date.toISOString().slice( 0, 10 ).split( "-" );
+			date = date[1] + "." + date[2] + "." + date[0];
 		}
-		catch( err )
-		{
-			reportError( err.message );
-		}
-	},
-	function( err )
-	{
-		console.log( "Getting Tasks Failed: " + JSON.stringify( err ) );
-		reportError( JSON.stringify( err ) );
-	});
+
+		var icon = ( tasks[i].starred ) ? "images/star.png" : "images/task.png";
+
+		menu.push({
+			title:    tasks[i].title,
+			subtitle: date,
+			icon:     icon,
+			data:     tasks[i],
+			position: taskPositions.indexOf( tasks[i].id )
+		});
+	}
+
+	menu.sort( sortItems );
+	
+	taskSections.sections[0].items = menu;
+		
+	return taskSections;
 }
-
 
 function getTask( data )
 {
-	if (DEBUG) console.log( "Getting Task" );
+	if(DEBUG) console.log( "Getting Task" );
 	
 	ajax(
 	{
@@ -528,26 +739,23 @@ function getTask( data )
 	{
 		try
 		{
-			if (DEBUG) console.log( JSON.stringify( note ) );
-			
-			// Clear Window
-			task.each( function( element ) {
-				task.remove( element );
-			});
-			
-			var timeZone = new Date().toTimeString().slice( 12, 17 );
+			if(DEBUG) console.log( JSON.stringify( note ) );
+
+			// Reinitiate to clear window old content
+			task = new UI.Window( { backgroundColor: "white" } );
+						
+			timeZone = new Date().toTimeString().slice( 12, 17 );
 			timeZone = String( timeZone ).slice( 0, 3 ) + ":" + String( timeZone ).slice( 3 );
-			if (DEBUG) console.log( timeZone );
 			
 			var dateString = data.due_date + "T00:00" + timeZone;
 			var displayDate = new Date( dateString );
 			
-			var today = new Date();
+			today = new Date();
 
-			var tomorrow = new Date();
+			tomorrow = new Date();
 			tomorrow.setDate( tomorrow.getDate() + 1 );
 			
-			var yesterday = new Date();
+			yesterday = new Date();
 			yesterday.setDate( yesterday.getDate() - 1 );
 			
 			if( !data.due_date )
@@ -586,7 +794,7 @@ function getTask( data )
 			var date = new UI.Text(
 			{
 				position:  new Vector2( 24, 30 ),
-				size:      new Vector2( 100, 30 ),
+				size:      new Vector2( 115, 30 ),
 				font:      "gothic-14",
 				text:      displayDate,
 				color:     "black",
@@ -612,87 +820,82 @@ function getTask( data )
 			
 			task.id = data.id;
 			task.data = data;
+
+			task.show();
 		}
 		catch( err )
 		{
-			reportError( err.message );
+			reportError( "Getting Task Details: " + err.message );
 		}
 	},
 	function( err )
 	{
-		if (DEBUG) console.log( "Getting Task Failed: " + JSON.stringify( err ) );
-		reportError( JSON.stringify( err ) );
+		if(DEBUG) console.log( "Getting Task Failed: " + JSON.stringify( err ) );
+		reportError( "Getting Task Notes AJAX: " + JSON.stringify( err ) );
 	});		
 }
 
-
 function completeTask( event )
 {
-	if (DEBUG) console.log( "Changing Complete Status" );
+	if(DEBUG) console.log( "Changing Complete Status" );
 
 	var date = new Date().toISOString();
 	date = date.slice( 0, date.indexOf( "T" ) );
-			
+
+	// Mark as done optimistically to improve UX.
+	if( event.item.data.completed )
+		taskMenu.item( event.sectionIndex, event.itemIndex, { title: event.item.title, subtitle: event.item.subtitle, icon: "images/task.png", data: event.item.data, position: event.item.position } );
+	else
+		taskMenu.item( event.sectionIndex, event.itemIndex, { title: event.item.title, subtitle: event.item.subtitle, icon: "images/done.png", data: event.item.data, position: event.item.position } );
+
 	ajax(
 	{
 		url:     api + "/tasks/" + event.item.data.id,
 		type:    "json",
-		method:  "patch",
-		headers: header,
-		data:    { revision: event.item.data.revision, completed: !event.item.data.completed }
-	},
-	function( data )
-	{
-		if (DEBUG) console.log( JSON.stringify( data ) );
-		
-		if ( data.completed )
-		{
-			if (DEBUG) console.log( "Task Marked Complete" );
-			
-			taskMenu.item( event.sectionIndex, event.itemIndex, { title: event.item.title, subtitle: event.item.subtitle, icon: "images/done.png", data: data, position: event.item.position } );
-		}
-		else
-		{
-			if (DEBUG) console.log( "Task Marked Incomplete" );
-			taskMenu.item( event.sectionIndex, event.itemIndex, { title: event.item.title, subtitle: event.item.subtitle, icon: "images/task.png", data: data, position: event.item.position } );
-		}
-	},
-	function( err )
-	{
-		if (DEBUG) console.log( "Completing Task Failed: " + JSON.stringify( err ) );
-		reportError( JSON.stringify( err ) );
-	});
-}
-
-
-function deleteTask( id )
-{
-	var date = new Date().toISOString();
-	date = date.slice( 0, date.indexOf( "T" ) );
-		
-	ajax(
-	{
-		url:     api + "/me/" + id,
-		type:    "json",
-		method:  "delete",
+		method:  "get",
 		headers: header
 	},
-	function( data )
+	function( taskData )
 	{
-		if (DEBUG) console.log( "Task Data: " + JSON.stringify( data ) );
-		if (DEBUG) console.log( "Deleted Task" );
+		ajax(
+		{
+			url:     api + "/tasks/" + event.item.data.id,
+			type:    "json",
+			method:  "patch",
+			headers: header,
+			data:    { revision: taskData.revision, completed: !taskData.completed }
+		},
+		function( data )
+		{
+			if(DEBUG) console.log( JSON.stringify( data ) );
+			
+			if( data.completed )
+			{
+				if(DEBUG) console.log( "Task Marked Complete" );
+				taskMenu.item( event.sectionIndex, event.itemIndex, { title: event.item.title, subtitle: event.item.subtitle, icon: "images/done.png", data: data, position: event.item.position } );
+			}
+			else
+			{
+				if(DEBUG) console.log( "Task Marked Incomplete" );
+				taskMenu.item( event.sectionIndex, event.itemIndex, { title: event.item.title, subtitle: event.item.subtitle, icon: "images/task.png", data: data, position: event.item.position } );
+			}
+		},
+		function( err )
+		{
+			if(DEBUG) console.log( "Completing Task Failed: " + JSON.stringify( err ) );
+			reportError( "Marking Task Complete AJAX: " + JSON.stringify( err ) );
+		});
 	},
 	function( err )
 	{
-		if (DEBUG) console.log( "Deleting Task Failed: " + JSON.stringify( err ) );
-		reportError( JSON.stringify( err ) );
+		if(DEBUG) console.log( "Completing Task Failed: " + JSON.stringify( err ) );
+		reportError( "Marking Task Complete AJAX: " + JSON.stringify( err ) );
 	});
 }
-
 
 function getListPositions( callback )
 {
-	if (DEBUG) console.log( "Getting List Positions" );
+	if(DEBUG) console.log( "Getting List Positions" );
 	
 	ajax(
 	{
@@ -705,29 +908,38 @@ function getListPositions( callback )
 	{
 		try
 		{
-			if ( DEBUG ) console.log( JSON.stringify(data) );
+			if( DEBUG ) console.log( JSON.stringify( data[0].values ) );
 			
 			listPositions = data[0].values;
 			
-			if (DEBUG) console.log( "Got List Positions" );
+			if(DEBUG) console.log( "Got List Positions" );
 			
-			if ( typeof callback !== "undefined" ) callback();
+			if( typeof callback !== "undefined" ) callback();
 		}
 		catch( err )
 		{
-			reportError( err.message );
+			reportError( "Getting List Positions: " + err.message );
 		}
 	},
 	function( err )
 	{
-		if (DEBUG) console.log( "Getting List Positions Failed: " + JSON.stringify( err ) );
-		reportError( JSON.stringify( err ) );
+		if(DEBUG) console.log( "Getting List Positions Failed: " + JSON.stringify( err ) );
+		reportError( "Getting List Positions AJAX: " + JSON.stringify( err ) );
 	});
 }
 
 function getTaskPositions( id, callback )
 {
-	if (DEBUG) console.log( "Getting Task Positions: " + id );
+	if(DEBUG) console.log( "Getting Task Positions" );
+
+	if( isNaN(id) )
+	{
+		if(DEBUG) console.log( "Skipped Task Positions" );
+
+		if( typeof callback !== "undefined" ) callback();
+		
+		return false;
+	}
 	
 	ajax(
 	{
@@ -740,119 +952,145 @@ function getTaskPositions( id, callback )
 	{
 		try
 		{
-			if (DEBUG) console.log( JSON.stringify( data.values ) );
+			if(DEBUG) console.log( JSON.stringify( data[0].values ) );
 			
 			taskPositions = data[0].values;
 			
-			if (DEBUG) console.log( "Got Task Positions" );
-			
-			if ( typeof callback !== "undefined" ) callback();
-		}
-		catch( err )
-		{
-			reportError( err.message );
-		}
-	},
-	function( err )
-	{
-		if (DEBUG) console.log( "Getting Task Positions Failed: " + JSON.stringify( err ) );
-		reportError( JSON.stringify( err ) );
-	});
-}
-
-function getShares( callback )
-{
-	if (DEBUG) console.log( "Getting Shares" );
-	
-	ajax(
-	{
-		url:     api + "/memberships",
-		type:    "json",
-		method:  "get",
-		headers: header
-	},
-	function( data )
-	{
-		try
-		{
-			for ( var i = 0; i < data.length; i++ )
-			{
-				if( shares.indexOf( data[i].list_id ) == -1 && "created_by_request_id" in data[i] && data[i].created_by_request_id !== null )
-				{
-					shares.push( data[i].list_id );
-				}
-			}
-			
-			if (DEBUG) console.log( JSON.stringify( shares ) );
-			if (DEBUG) console.log( "Got Shares" );
+			if(DEBUG) console.log( "Got Task Positions" );
 			
 			if( typeof callback !== "undefined" ) callback();
 		}
 		catch( err )
 		{
-			reportError( err.message );
+			reportError( "Getting Task Positions: " + err.message );
 		}
 	},
 	function( err )
 	{
-		if (DEBUG) console.log( "Getting Shares Failed: " + JSON.stringify( err ) );
-		reportError( JSON.stringify( err ) );
+		if(DEBUG) console.log( "Getting Task Positions Failed: " + JSON.stringify( err ) );
+		reportError( "Getting Task Positions AJAX: " + JSON.stringify( err ) );
+	});
+}
+
+function getShares( callback )
+{
+	if(DEBUG) console.log( "Getting Shares" );
+	
+	shares = [];
+	
+	var semaphore = 0;
+	
+	for ( var i = 0; i < listPositions.length; i++ )
+	{
+		semaphore++;
+		if(DEBUG) console.log( "Running Task: "+ semaphore );
+		
+		ajax(
+		{
+			url:     api + "/memberships?list_id=" + listPositions[i],
+			type:    "json",
+			method:  "get",
+			headers: header
+		},
+		function( data )
+		{
+			try
+			{
+				if( data.length > 1 ) shares.push( data[0].list_id );
+			}
+			catch( err )
+			{
+				reportError( "Getting Shares: " + err.message );
+			}
+			finally
+			{
+				semaphore--;
+				if(DEBUG) console.log( "Ending Task, " + semaphore + " Left" );
+				if( semaphore === 0 )
+				{
+					if(DEBUG) console.log( JSON.stringify( shares ) );
+					if(DEBUG) console.log( "Got Shares" );
+
+					if( typeof callback !== "undefined" ) callback();
+				}
+			}
+		},
+		function( err )
+		{
+			if(DEBUG) console.log( "Getting Shares Failed: " + JSON.stringify( err ) );
+			if( err.type != "permission_error" )
+			{
+				reportError( "Getting Shares AJAX: " + JSON.stringify( err ) );
+			}
+			
+			semaphore--;
+			if(DEBUG) console.log( "Ending Task, " + semaphore + " Left" );
+			if( semaphore === 0 )
+			{
+				if(DEBUG) console.log( JSON.stringify( shares ) );
+				if(DEBUG) console.log( "Got Shares" );
+				
+				if( typeof callback !== "undefined" ) callback();
+			}
+		});
+	}	
+}
+
+function getUserData()
+{
+	ajax(
+	{
+		url:     api + "/user",
+		type:    "json",
+		method:  "get",
+		headers: header,
+		cache:   false
+	},
+	function( userData )
+	{
+		Settings.data( "user", userData );
+	},
+	function( error )
+	{
+		if(DEBUG) console.log( "Getting User Data Failed: " + JSON.stringify( error ) );		
+		reportError( "Getting User Data: " + JSON.stringify( error ) );
 	});
 }
 
 
 // UTILITY FUNCTIONS
-function onRefresh( callback )
-{
-	setTimeout( function()
-	{
-		if( refreshed )
-		{
-			callback();
-			refreshed = false;
-		}
-		else
-		{
-			onRefresh( callback );
-		}
-	}, 200);
-}
-
-
 function sortItems( a, b )
 {
-	if ( a.position < b.position )
+	if( a.position < b.position )
 		return -1;
-	if ( a.position > b.position )
+	if( a.position > b.position )
 		return 1;
 	// a must be equal to b
 		return 0;
 }
 
-
 function reportError( err )
 {
-	if (DEBUG) console.debug( err );
-	
+	if(DEBUG) console.log( "Reporting Error" );	
 	var today = new Date();
 
-	if ( Settings.option( "reporting" ) )
+	if( Settings.option( "reporting" ) )
 	{
 		ajax(
 		{
 			url:    reporting,
 			type:   "string",
 			method: "post",
-			data:   { date: today.toISOString(), error: err, identifier: Settings.option( "token" ) }
+			data:   { timestamp: today.toISOString(), error: err, identifier: Settings.data( "user" ).email, version: VERSION }
 		},
 		function( data )
 		{
-			if (DEBUG) console.log( "Error Reported" );
-			if (DEBUG) console.log( data );
+			if(DEBUG) console.log( "Error Reported: " + err );
+			if(DEBUG) console.log( data );
 		},
-		function(error)
+		function( err )
 		{
-			if (DEBUG) console.log( "Error Report Failed" );
+      if(DEBUG) console.log( "Error Report Failed: " + JSON.stringify( err ) );
 		});
 	}
 	else

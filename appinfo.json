@@ -29,6 +29,36 @@
                 "type": "font"
             },
             {
+                "file": "images/folder.png",
+                "name": "IMAGES_FOLDER_PNG",
+                "type": "png"
+            },
+            {
+                "file": "images/week.png",
+                "name": "IMAGES_WEEK_PNG",
+                "type": "png"
+            },
+            {
+                "file": "images/today.png",
+                "name": "IMAGES_TODAY_PNG",
+                "type": "png"
+            },
+            {
+                "file": "images/list.png",
+                "name": "IMAGES_LIST_PNG",
+                "type": "png"
+            },
+            {
+                "file": "images/inbox.png",
+                "name": "IMAGES_INBOX_PNG",
+                "type": "png"
+            },
+            {
+                "file": "images/group.png",
+                "name": "IMAGES_GROUP_PNG",
+                "type": "png"
+            },
+            {
                 "file": "images/icon.png",
                 "menuIcon": true,
                 "name": "IMAGES_ICON_PNG",
@@ -88,38 +118,13 @@
                 "file": "images/task.png",
                 "name": "IMAGES_TASK_PNG",
                 "type": "png"
-            },
-            {
-                "file": "images/week.png",
-                "name": "IMAGES_WEEK_PNG",
-                "type": "png"
-            },
-            {
-                "file": "images/today.png",
-                "name": "IMAGES_TODAY_PNG",
-                "type": "png"
-            },
-            {
-                "file": "images/list.png",
-                "name": "IMAGES_LIST_PNG",
-                "type": "png"
-            },
-            {
-                "file": "images/inbox.png",
-                "name": "IMAGES_INBOX_PNG",
-                "type": "png"
-            },
-            {
-                "file": "images/group.png",
-                "name": "IMAGES_GROUP_PNG",
-                "type": "png"
             }
         ]
     },
     "shortName": "WunderPebble",
     "uuid": "4513f443-59f3-4cf6-a9ca-1c23b18e1224",
     "versionCode": 1,
-    "versionLabel": "1.0",
+    "versionLabel": "1.2",
     "watchapp": {
         "watchface": false
     }
