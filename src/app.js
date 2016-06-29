@@ -23,6 +23,7 @@ var header = {
 	contentType: "application/json"
 };
 var reporting = "https://wunderpebble.com/config/report.php";
+var taskItems = 0;
 var shares = [];
 var folders = {};
 var listPositions = [];
