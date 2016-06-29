@@ -11,17 +11,17 @@
             {
                 "file": "images/menu_icon.png",
                 "name": "IMAGE_MENU_ICON",
-                "type": "png"
+                "type": "bitmap"
             },
             {
                 "file": "images/logo_splash.png",
                 "name": "IMAGE_LOGO_SPLASH",
-                "type": "png"
+                "type": "bitmap"
             },
             {
                 "file": "images/tile_splash.png",
                 "name": "IMAGE_TILE_SPLASH",
-                "type": "png"
+                "type": "bitmap"
             },
             {
                 "file": "fonts/UbuntuMono-Regular.ttf",
@@ -29,103 +29,125 @@
                 "type": "font"
             },
             {
-                "file": "images/folder.png",
-                "name": "IMAGES_FOLDER_PNG",
-                "type": "png"
+                "file": "images/splash-round.png",
+                "name": "IMAGES_SPLASH_ROUND_PNG",
+                "type": "bitmap"
             },
             {
-                "file": "images/week.png",
-                "name": "IMAGES_WEEK_PNG",
-                "type": "png"
+                "file": "images/loading-round.png",
+                "name": "IMAGES_LOADING_ROUND_PNG",
+                "type": "bitmap"
             },
             {
-                "file": "images/today.png",
-                "name": "IMAGES_TODAY_PNG",
-                "type": "png"
+                "file": "images/task-bg-round.png",
+                "name": "IMAGES_TASK_BG_ROUND_PNG",
+                "type": "bitmap"
             },
             {
-                "file": "images/list.png",
-                "name": "IMAGES_LIST_PNG",
-                "type": "png"
-            },
-            {
-                "file": "images/inbox.png",
-                "name": "IMAGES_INBOX_PNG",
-                "type": "png"
-            },
-            {
-                "file": "images/group.png",
-                "name": "IMAGES_GROUP_PNG",
-                "type": "png"
+                "file": "images/task-bg.png",
+                "name": "IMAGES_TASK_BG_PNG",
+                "type": "bitmap"
             },
             {
                 "file": "images/icon.png",
                 "menuIcon": true,
                 "name": "IMAGES_ICON_PNG",
-                "type": "png"
-            },
-            {
-                "file": "images/error.png",
-                "name": "IMAGES_ERROR_PNG",
-                "type": "png"
+                "type": "bitmap"
             },
             {
                 "file": "images/splash.png",
                 "name": "IMAGES_SPLASH_PNG",
-                "type": "png"
+                "type": "bitmap"
             },
             {
-                "file": "images/loading.png",
-                "name": "IMAGES_LOADING_PNG",
-                "type": "png"
+                "file": "images/inbox.png",
+                "name": "IMAGES_INBOX_PNG",
+                "type": "bitmap"
             },
             {
-                "file": "images/task-trash.png",
-                "name": "IMAGES_TASK_TRASH_PNG",
-                "type": "png"
+                "file": "images/folder.png",
+                "name": "IMAGES_FOLDER_PNG",
+                "type": "bitmap"
             },
             {
-                "file": "images/task-done.png",
-                "name": "IMAGES_TASK_DONE_PNG",
-                "type": "png"
+                "file": "images/group.png",
+                "name": "IMAGES_GROUP_PNG",
+                "type": "bitmap"
             },
             {
-                "file": "images/task-star.png",
-                "name": "IMAGES_TASK_STAR_PNG",
-                "type": "png"
+                "file": "images/list.png",
+                "name": "IMAGES_LIST_PNG",
+                "type": "bitmap"
             },
             {
-                "file": "images/task-checkbox.png",
-                "name": "IMAGES_TASK_CHECKBOX_PNG",
-                "type": "png"
+                "file": "images/week.png",
+                "name": "IMAGES_WEEK_PNG",
+                "type": "bitmap"
             },
             {
-                "file": "images/task-bg.png",
-                "name": "IMAGES_TASK_BG_PNG",
-                "type": "png"
-            },
-            {
-                "file": "images/done.png",
-                "name": "IMAGES_DONE_PNG",
-                "type": "png"
+                "file": "images/today.png",
+                "name": "IMAGES_TODAY_PNG",
+                "type": "bitmap"
             },
             {
                 "file": "images/star.png",
                 "name": "IMAGES_STAR_PNG",
-                "type": "png"
+                "type": "bitmap"
             },
             {
                 "file": "images/task.png",
                 "name": "IMAGES_TASK_PNG",
-                "type": "png"
+                "type": "bitmap"
+            },
+            {
+                "file": "images/loading.png",
+                "name": "IMAGES_LOADING_PNG",
+                "type": "bitmap"
+            },
+            {
+                "file": "images/task-trash.png",
+                "name": "IMAGES_TASK_TRASH_PNG",
+                "type": "bitmap"
+            },
+            {
+                "file": "images/task-done.png",
+                "name": "IMAGES_TASK_DONE_PNG",
+                "type": "bitmap"
+            },
+            {
+                "file": "images/task-star.png",
+                "name": "IMAGES_TASK_STAR_PNG",
+                "type": "bitmap"
+            },
+            {
+                "file": "images/task-checkbox.png",
+                "name": "IMAGES_TASK_CHECKBOX_PNG",
+                "type": "bitmap"
+            },
+            {
+                "file": "images/done.png",
+                "name": "IMAGES_DONE_PNG",
+                "type": "bitmap"
+            },
+            {
+                "file": "images/error.png",
+                "name": "IMAGES_ERROR_PNG",
+                "type": "bitmap"
             }
         ]
     },
+    "sdkVersion": "3",
     "shortName": "WunderPebble",
+    "targetPlatforms": [
+        "aplite",
+        "basalt",
+        "chalk"
+    ],
     "uuid": "4513f443-59f3-4cf6-a9ca-1c23b18e1224",
     "versionCode": 1,
-    "versionLabel": "1.2",
+    "versionLabel": "2.0",
     "watchapp": {
+        "hiddenApp": false,
         "watchface": false
     }
 }
