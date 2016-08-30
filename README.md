@@ -10,17 +10,68 @@ WunderPebble is a Wunderlist client for the Pebble Smartwatch. It was written us
 ## Roadmap
 These are some of the features that are planned for future releases. There's no timescale since WunderPebble is developed on my free time, but I will try my best to get to everything quickly.
 
-1. Port Over to Pebble SDK 3.0
-2. Speed and Reliability Improvements (keep sending in feedback)
-2. Redesign Task Detail Screen
-3. Create color version for Pebble Time
+1. Voice Support
+2. Timeline Integration
+2. Add Starred List
+3. Color Themes
 
 ## Features Under Consideration
 - Reordering Lists
-- Using Pebble Time Microphone to Add Tasks
-- Pebble Time Timeline integration
-- Settings
+- Scrolling List & Task Names
+- Implement in Rocky.js
 
 ##Changelog
 
-Coming Soon
+###2.11
+- Fixed bug in original pebble that crashed app when opening a list
+- Fixed missing task background
+- Performance improvements
+- Began updating code for Diorite platform
+
+###2.0 - 2.1
+- Added color
+- Added support for Pebble Time Round
+- Fixed text encoding issue
+- New settings page (you may need to sign in again)
+- Change Wunderlist accounts
+- New website with FAQ
+- Redesigned settings page
+
+###1.2
+- Added Support for new Wunderlist Folders
+- New Icons to Match Wunderlist's New Look
+
+###1.1
+- Improved speed and efficiency
+- Shared Lists are Correctly Detected
+- Added Today Smart List
+- Added Week Smart List
+- Improved Error Handling
+
+###1.0
+- WunderPebble is now using the official Wunderlist API!
+- Longpress on a task to mark it complete (And again to mark incomplete)
+- Lists and tasks should appear in the correct order
+- Implement Wunderlist's OAuth2 authentication to log in
+
+###0.81
+- Minor Bug Fix
+
+###0.80
+- Group Lists now have a group icon
+- Fixed timezone issue (thanks to everyone that helped me debug)
+
+###0.70
+- Corrected Week view and separate tasks by date
+- Separated Today view by List name
+- More detailed error logging
+
+###0.62
+- Reduced Size of Resources
+- Added Anonymous Opt-In Error Reporting
+- Tells You When a List is Empty Instead of Giving a Blank Screen
+
+###0.60
+- Added loading screens
+- Fixed an issue with empty due dates crashing the app when fetching lists
+- Changed Week View to show which list each task belongs to
