@@ -37,7 +37,7 @@ These are some of the features that are planned for future releases. There's no 
 - New website with FAQ
 - Redesigned settings page
 
-###1.2
+###1.2 - [Article Link](https://wunderpebble.com/2015/03/17/wunderpebble-1-2-with-folder-support)
 - Added Support for new Wunderlist Folders
 - New Icons to Match Wunderlist's New Look
 
@@ -48,7 +48,7 @@ These are some of the features that are planned for future releases. There's no 
 - Added Week Smart List
 - Improved Error Handling
 
-###1.0
+###1.0 - [Article Link](https://wunderpebble.com/2015/02/14/an-all-new-wunderpebble-experience-update-1-0)
 - WunderPebble is now using the official Wunderlist API!
 - Longpress on a task to mark it complete (And again to mark incomplete)
 - Lists and tasks should appear in the correct order
