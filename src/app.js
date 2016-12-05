@@ -651,7 +651,7 @@ function displayTodayTasks( tasks )
 		{
 			var date = new Date( tasks[ i ].due_date + "T00:00" + timeZone );
 
-			if ( date.getTime() <= today.getTime() )
+			if ( date.getTime() <= today.getTime() && (tasks[ i ].assignee_id == null || tasks[ i ].assignee_id == Settings.data( "user" ).id) )
 			{
 				taskItems++;
 
