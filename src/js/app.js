@@ -4,8 +4,8 @@
  * http://wunderpebble.com
  */
 // DEBUGGING
-var DEBUG = true;
-var VERSION = 2.0;
+var DEBUG = false;
+var VERSION = 2.11;
 
 // INCLUDES
 var UI = require( "ui" );
@@ -13,6 +13,7 @@ var ajax = require( "ajax" );
 var Settings = require( "settings" );
 var Vector2 = require( "vector2" );
 var Feature = require( 'platform/feature' );
+var Platform = require( 'platform' );
 
 // GLOBAL VARIABLES
 var api = "https://a.wunderlist.com/api/v1";
@@ -45,17 +46,17 @@ var timeZone;
 // CONFIGURATION
 Settings.config(
 	{
-		url: "https://wunderpebble.com/config/",
+		url: "https://wunderpebble.com/config/?data=" + getURIOptions(),
 		autoSave: true,
-		hash: true
+		hash: false
 	},
 	function ( e )
 	{
-		console.log( "Open Configuration" );
+		if ( DEBUG ) console.log( "Open Configuration" );
 	},
 	function ( e )
 	{
-		console.log( "Closed Configuration" );
+		if ( DEBUG ) console.log( "Closed Configuration" );
 
 		var data;
 
@@ -72,7 +73,9 @@ Settings.config(
 			// For testing in CloudPebble we manually set token
 			// Settings.option( "token", "" );
 		}
-		
+
+		if ( DEBUG ) console.log( e.response );
+
 		Settings.option( "version", VERSION );
 
 		header = {
@@ -86,31 +89,12 @@ Settings.config(
 );
 
 // WINDOWS
-var noConfig = new UI.Card(
-{
-	title: " WunderPebble",
-	body: "\nOpen the Pebble App on your phone to configure, then restart.",
-	icon: "images/icon.png",
-	style: "small"
-} );
-
 var error = new UI.Card(
-{
-	title: " Error",
+{	title: " Error",
 	body: "",
 	icon: "images/error.png",
 	style: "small",
 	scrollable: true
-} );
-
-var splash = new UI.Card(
-{
-	banner: ( Feature.round() ) ? "images/splash-round.png" : "images/splash.png"
-} );
-
-var loading = new UI.Card(
-{
-	banner: ( Feature.round() ) ? "images/loading-round.png" : "images/loading.png"
 } );
 
 var listMenu = new UI.Menu(
@@ -119,7 +103,15 @@ var listMenu = new UI.Menu(
 	{
 		items: []
 	} ],
-	highlightBackgroundColor: 'blue'
+	status:
+	{
+		color: getTextColor(),
+		backgroundColor: getBGColor(),
+	},
+	textColor: getTextColor(),
+	backgroundColor: getBGColor(),
+	highlightTextColor: getHighlightTextColor(),
+	highlightBackgroundColor: getHighlightBGColor()
 } );
 
 var sublistMenu = new UI.Menu(
@@ -128,148 +120,36 @@ var sublistMenu = new UI.Menu(
 	{
 		items: []
 	} ],
-	highlightBackgroundColor: 'blue'
-} );
-
-var taskMenu = new UI.Menu(
-{
-	sections: [
+	status:
 	{
-		items: []
-	} ],
-	highlightBackgroundColor: 'blue'
+		color: getTextColor(),
+		backgroundColor: getBGColor(),
+	},
+	textColor: getTextColor(),
+	backgroundColor: getBGColor(),
+	highlightTextColor: getHighlightTextColor(),
+	highlightBackgroundColor: getHighlightBGColor()
 } );
 
-var task = new UI.Window(
-{
-	//action: {
-	//	up: "images/task-done.png",
-	//	down: "images/task-trash.png",
-	//	backgroundColor: "black"
-	//},
-	backgroundColor: "white"
-} );
-
-// ICONS
-var taskCheckbox = new UI.Image(
-{
-	position: new Vector2( 7, 11 ),
-	size: new Vector2( 12, 12 ),
-	image: "images/task-checkbox.png"
-} );
-
-var taskStar = new UI.Image(
-{
-	position: new Vector2( 6, 2 ),
-	size: new Vector2( 14, 26 ),
-	image: "images/task-star.png"
-} );
+var taskMenu;
+var task;
 
 // EVENT LISTENERS
-noConfig.on( "select", programStart );
+listMenu.on( "select", clickOnList );
 
-listMenu.on( "select", function ( e )
-{
-	console.log( "Viewing Tasks For: " + e.item.title );
-
-	loading.show();
-
-	try
-	{
-		if ( e.item.type == 'folder' )
-		{
-			getLists( e.item.id, function ()
-			{
-				sublistMenu.show();
-				loading.hide();
-			} );
-		}
-		else
-		{
-			getTaskPositions( e.item.id, function ()
-			{
-				getTasks( e.item.id, e.item.title, function ()
-				{
-					if ( taskItems )
-					{
-						taskMenu.show();
-						loading.hide();
-					}
-					else
-					{
-						error.body( "\nNo tasks were found for this list" );
-						error.show();
-						loading.hide();
-					}
-
-					taskItems = 0;
-				} );
-			} );
-		}
-	}
-	catch ( err )
-	{
-		reportError( "List Selected: " + err.message );
-	}
-} );
-
-sublistMenu.on( "select", function ( e )
-{
-	console.log( "Viewing Tasks For: " + e.item.title );
-
-	loading.show();
-
-	try
-	{
-		getTaskPositions( e.item.id, function ()
-		{
-			getTasks( e.item.id, e.item.title, function ()
-			{
-				if ( taskItems )
-				{
-					taskMenu.show();
-					loading.hide();
-				}
-				else
-				{
-					error.body( "\nNo tasks were found for this list" );
-					error.show();
-					loading.hide();
-				}
-
-				taskItems = 0;
-			} );
-		} );
-	}
-	catch ( err )
-	{
-		reportError( "List Selected: " + err.message );
-	}
-} );
-
-taskMenu.on( "select", function ( e )
-{
-	if ( DEBUG ) console.log( "Selected Task: " + e.item.title );
-
-	try
-	{
-		getTask( e.item.data );
-	}
-	catch ( err )
-	{
-		reportError( "Task Selected: " + err.message );
-	}
-} );
+sublistMenu.on( "select", clickOnList );
 
 // PROGRAM START
 function programStart()
 {
-	console.log('Version:');
-	console.log(Settings.option( "version" ));
 	if ( typeof Settings.option( "token" ) !== "undefined" && Settings.option( "token" ) !== null && typeof Settings.option( "version" ) !== "undefined" && Settings.option( "version" ) !== null )
 	{
+		var splash = new UI.Card(
+		{
+			banner: ( Feature.round() ) ? "images/splash-round.png" : "images/splash.png"
+		} );
+
 		splash.show();
-		noConfig.hide();
 
 		if ( Settings.data( "user" ) === null )
 			getUserData();
@@ -295,6 +175,14 @@ function programStart()
 	}
 	else
 	{
+		var noConfig = new UI.Card(
+		{
+			title: " WunderPebble",
+			body: "\nOpen the Pebble App on your phone to configure, then restart.",
+			icon: "images/icon.png",
+			style: "small"
+		} );
+
 		noConfig.show();
 	}
 }
@@ -330,7 +218,6 @@ function getLists( folder, callback )
 
 			if ( DEBUG ) console.log( "Folders: " + JSON.stringify( folders ) );
 			if ( DEBUG ) console.log( "Folder List: " + JSON.stringify( folderLists ) );
-
 			if ( DEBUG ) console.log( "Getting Lists" );
 
 			ajax(
@@ -363,7 +250,7 @@ function getLists( folder, callback )
 							}
 						}
 
-						console.log( "Lists for Folder: " + JSON.stringify( lists ) );
+						if ( DEBUG ) console.log( "Lists for Folder: " + JSON.stringify( lists ) );
 
 						displayLists( lists, cleanTitle( folders[ folder ].title ) );
 					}
@@ -434,7 +321,7 @@ function displayLists( lists, sublist )
 					title: cleanTitle( folders[ folderLists[ lists[ i ].id ] ].title ),
 					icon: "images/folder.png",
 					id: folders[ folderLists[ lists[ i ].id ] ].id,
-					position: listPositions.indexOf( lists[ i ].id ),
+					position: ( listPositions.indexOf( lists[ i ].id ) >= 0 ) ? listPositions.indexOf( lists[ i ].id ) : lists.length + lists[ i ].id,
 					type: "folder"
 				} );
 
@@ -447,7 +334,7 @@ function displayLists( lists, sublist )
 					title: cleanTitle( lists[ i ].title ),
 					icon: ( shares.indexOf( lists[ i ].id ) > -1 ) ? "images/group.png" : "images/list.png",
 					id: lists[ i ].id,
-					position: listPositions.indexOf( lists[ i ].id ),
+					position: ( listPositions.indexOf( lists[ i ].id ) >= 0 ) ? listPositions.indexOf( lists[ i ].id ) : lists.length + lists[ i ].id,
 					type: "list"
 				} );
 
@@ -463,7 +350,6 @@ function displayLists( lists, sublist )
 				title: cleanTitle( sublist ),
 				items: menu
 			} );
-		// sublistMenu.items( 0, menu );
 		else
 			listMenu.items( 0, menu );
 
@@ -479,6 +365,7 @@ function getTasks( id, list, callback )
 {
 	if ( DEBUG ) console.log( "Gettings Tasks" );
 
+	// We have a list ID so we can get tasks for it
 	if ( !isNaN( id ) )
 	{
 		ajax(
@@ -504,10 +391,12 @@ function getTasks( id, list, callback )
 			},
 			function ( err )
 			{
-				console.log( "Getting Tasks Failed: " + JSON.stringify( err ) );
+				if ( DEBUG ) console.log( "Getting Tasks Failed: " + JSON.stringify( err ) );
 				reportError( "Getting Tasks: " + JSON.stringify( err ) );
-			} );
+			}
+		);
 	}
+	// No list ID so we get all the tasks in the listPositions?
 	else
 	{
 		var tasks = [];
@@ -551,7 +440,7 @@ function getTasks( id, list, callback )
 				},
 				function ( err )
 				{
-					console.log( "Getting All Tasks Failed: " + JSON.stringify( err ) );
+					if ( DEBUG ) console.log( "Getting All Tasks Failed: " + JSON.stringify( err ) );
 
 					if ( err.type != "permission_error" )
 					{
@@ -598,41 +487,29 @@ function displayTasks( id, list, tasks )
 	else
 		menuItems = displayListTasks( tasks, list );
 
-	menuItems.highlightBackgroundColor = "blue";
+	taskMenu = new UI.Menu(
+	{
+		sections: menuItems.sections,
+		status:
+		{
+			color: getTextColor(),
+			backgroundColor: getBGColor(),
+		},
+		textColor: getTextColor(),
+		backgroundColor: getBGColor(),
+		highlightTextColor: getHighlightTextColor(),
+		highlightBackgroundColor: getHighlightBGColor()
+	} );
 
-	taskMenu = new UI.Menu( menuItems );
+	taskMenu.on( "select", clickOnTask );
+	taskMenu.on( "longSelect", longClickOnTask );
+
+	new UI.Menu( menuItems );
 	taskMenu.id = id;
 	taskMenu.list = list;
 
 	if ( DEBUG ) console.log( "Displaying Task List Object" );
 	if ( DEBUG ) console.log( JSON.stringify( taskMenu ) );
-
-	taskMenu.on( "select", function ( e )
-	{
-		if ( DEBUG ) console.log( "Viewing Task: " + e.item.title );
-
-		try
-		{
-			getTask( e.item.data );
-		}
-		catch ( err )
-		{
-			reportError( "Task Selected: " + err.message );
-		}
-	} );
-
-	taskMenu.on( "longSelect", function ( e )
-	{
-		try
-		{
-			completeTask( e );
-		}
-		catch ( err )
-		{
-			reportError( "Marked Task Complete: " + err.message );
-		}
-	} );
-
 	if ( DEBUG ) console.log( "Displayed " + taskItems + " Tasks" );
 }
 
@@ -698,18 +575,12 @@ function displayWeekTasks( tasks )
 	week.setDate( week.getDate() + 6 );
 
 	var i = today.getDay();
-	// var in2Days = in3Days = in4Days = in5Days = in6Days = today;
 
 	var in2Days = new Date( ( new Date() ).setDate( today.getDate() + 2 ) );
 	var in3Days = new Date( ( new Date() ).setDate( today.getDate() + 3 ) );
 	var in4Days = new Date( ( new Date() ).setDate( today.getDate() + 4 ) );
 	var in5Days = new Date( ( new Date() ).setDate( today.getDate() + 5 ) );
 	var in6Days = new Date( ( new Date() ).setDate( today.getDate() + 6 ) );
-
-	// in3Days.setDate( in3Days.getDate() + 3 );
-	// in4Days.setDate( in4Days.getDate() + 4 );
-	// in5Days.setDate( in5Days.getDate() + 5 );
-	// in6Days.setDate( in6Days.getDate() + 6 );
 
 	var taskSections = {
 		sections: [
@@ -838,7 +709,7 @@ function displayListTasks( tasks, list )
 			subtitle: date,
 			icon: icon,
 			data: tasks[ i ],
-			position: taskPositions.indexOf( tasks[ i ].id )
+			position: ( taskPositions.indexOf( tasks[ i ].id ) >= 0 ) ? taskPositions.indexOf( tasks[ i ].id ) : tasks.length + tasks[ i ].id
 		} );
 	}
 
@@ -851,7 +722,7 @@ function displayListTasks( tasks, list )
 
 function getTask( data )
 {
-	if ( DEBUG ) console.log( "Getting Task" );
+	if ( DEBUG ) console.log( "Getting Task " + data.id );
 
 	ajax(
 		{
@@ -866,10 +737,12 @@ function getTask( data )
 			{
 				if ( DEBUG ) console.log( JSON.stringify( note ) );
 
+				note = ( note.length > 0 ) ? note[ 0 ].content : '';
+
 				// Reinitiate to clear window old content
 				task = new UI.Window(
 				{
-					backgroundColor: "white"
+					backgroundColor: getBGColor()
 				} );
 
 				timeZone = new Date().toTimeString().slice( 12, 17 );
@@ -877,7 +750,7 @@ function getTask( data )
 
 				var dateString = data.due_date + "T00:00" + timeZone;
 				var displayDate = new Date( dateString );
-				var color = "black";
+				var color = getTextColor();
 
 				today = new Date();
 
@@ -917,13 +790,100 @@ function getTask( data )
 					displayDate = "Due on " + displayDate[ 1 ] + " " + Number( displayDate[ 2 ] ) + ", " + displayDate[ 3 ];
 				}
 
-				var bg = new UI.Image(
+				var lineNum = Math.floor( ( Feature.resolution().y - Feature.rectangle( 47, 53 ) ) / 14 );
+
+				// Creating lines for notes field
+				for ( var i = lineNum; i > 0; i-- )
 				{
-					position: new Vector2( 0, 0 ),
-					image: ( Feature.round() ) ? "images/task-bg-round.png" : "images/task-bg.png"
+					var y = i * 14 + Feature.rectangle( 47, 53 );
+
+					var line = new UI.Rect(
+					{
+						position: new Vector2( 5, y ),
+						size: new Vector2( Feature.resolution().x - 10, 1 ),
+						backgroundColor: (Settings.option("theme") == "light") ? "light-gray" : "dark-gray",
+						borderWidth: 0
+					} );
+
+					task.add( line );
+				}
+
+				// Since we don't know the exact width at all parts of a round screen, we add borders
+				// to clean up the full width lines
+				if ( Feature.round() )
+				{
+					var cleanLines = new UI.Circle(
+					{
+						position: new Vector2( Feature.resolution().x / 2 - 1, Feature.resolution().y / 2 - 1 ),
+						radius: Feature.resolution().x / 2,
+						backgroundColor: 'clear',
+						borderColor: getBGColor(),
+						borderWidth: 6
+					} );
+
+					task.add( cleanLines );
+				}
+
+				var topDivider = new UI.Line(
+				{
+					position: Feature.rectangle( new Vector2( 1, 31 ), new Vector2( 1, 37 ) ),
+					position2: Feature.rectangle( new Vector2( Feature.resolution().x - 2, 31 ), new Vector2( Feature.resolution().x - 2, 37 ) ),
+					strokeColor: getTextColor(),
+					strokeWidth: 1
 				} );
 
-				var icon = ( data.starred ) ? taskStar : taskCheckbox;
+				task.add( topDivider );
+
+				var bottomDivider = new UI.Line(
+				{
+					position: Feature.rectangle( new Vector2( 1, 47 ), new Vector2( 1, 53 ) ),
+					position2: Feature.rectangle( new Vector2( Feature.resolution().x - 2, 47 ), new Vector2( Feature.resolution().x - 2, 53 ) ),
+					strokeColor: getTextColor(),
+					strokeWidth: 1
+				} );
+
+				task.add( bottomDivider );
+
+				// Onlt show outline in rectangular screens
+				if ( Feature.rectangle() )
+				{
+					var outline = ( Feature.rectangle() ) ?
+						new UI.Rect(
+						{
+							position: new Vector2( 1, 1 ),
+							size: new Vector2( Feature.resolution().x - 2, Feature.resolution().y - 2 ),
+							backgroundColor: 'clear',
+							borderColor: getTextColor(),
+							borderWidth: 1
+						} ) :
+						new UI.Circle(
+						{
+							position: new Vector2( Feature.resolution().x / 2 - 1, Feature.resolution().y / 2 - 1 ),
+							radius: Feature.resolution().x / 2 - 1,
+							backgroundColor: 'clear',
+							borderColor: getTextColor(),
+							borderWidth: 1
+						} );
+
+					task.add( outline );
+				}
+
+				var icon = ( data.starred ) ?
+					new UI.Image(
+					{
+						position: new Vector2( 6, 2 ),
+						size: new Vector2( 14, 26 ),
+						image: "images/task-star.png"
+					} ) :
+					new UI.Image(
+					{
+						position: new Vector2( 7, 11 ),
+						size: new Vector2( 12, 12 ),
+						image: "images/task-checkbox.png",
+						compositing: ( Settings.option( "theme" ) == 'dark' ) ? 'invert' : 'normal'
+					} );
+
+				task.add( icon );
 
 				var title = new UI.Text(
 				{
@@ -932,37 +892,37 @@ function getTask( data )
 					font: "gothic-14-bold",
 					text: ( Feature.round() ) ? flowForRound( data.title, [ 13, 20 ] ) : cleanTitle( data.title ),
 					textOverflow: "ellipsis",
-					color: "black",
-					textAlign: ( Feature.round() ) ? "center" : "left"
+					color: getTextColor(),
+					textAlign: Feature.round( 'center', 'left' )
 				} );
+
+				task.add( title );
 
 				var date = new UI.Text(
 				{
-					position: ( Feature.round() ) ? new Vector2( 0, 36 ) : new Vector2( 24, 30 ),
-					size: ( Feature.round() ) ? new Vector2( 180, 30 ) : new Vector2( 115, 30 ),
+					position: Feature.round( new Vector2( 0, 36 ), new Vector2( 24, 30 ) ),
+					size: Feature.round( new Vector2( 180, 30 ), new Vector2( 115, 30 ) ),
 					font: "gothic-14",
 					text: displayDate,
 					color: color,
-					textAlign: ( Feature.round() ) ? "center" : "left"
+					textAlign: Feature.round( 'center', 'left' )
 				} );
+
+				task.add( date );
 
 				note = new UI.Text(
 				{
-					position: ( Feature.round() ) ? new Vector2( 5, 52 ) : new Vector2( 5, 46 ),
-					size: ( Feature.round() ) ? new Vector2( 170, 115 ) : new Vector2( 133, 115 ),
+					position: Feature.round( new Vector2( 5, 52 ), new Vector2( 5, 46 ) ),
+					size: Feature.round( new Vector2( 170, 115 ), new Vector2( 133, 115 ) ),
 					font: "gothic-14",
-					text: ( Feature.round() ) ? flowForRound( note[ 0 ].content, [ 28, 28, 28, 28, 26, 24, 21, 15 ] ) : ( ( note.length ) ? cleanTitle( note[ 0 ].content ) : "" ),
+					text: Feature.round( flowForRound( note, [ 28, 28, 28, 28, 26, 24, 21, 15 ] ), cleanTitle( note ) ),
 					textOverflow: "ellipsis",
-					color: "black",
-					textAlign: ( Feature.round() ) ? "center" : "left"
+					color: getTextColor(),
+					textAlign: Feature.round( 'center', 'left' )
 				} );
 
-				task.add( bg );
-				task.add( icon );
-				task.add( title );
-				task.add( date );
 				task.add( note );
-
+				
 				task.id = data.id;
 				task.data = data;
 
@@ -970,6 +930,7 @@ function getTask( data )
 			}
 			catch ( err )
 			{
+				if ( DEBUG ) console.log( "Getting Task Details Failed: " + err.message );
 				reportError( "Getting Task Details: " + err.message );
 			}
 		},
@@ -1225,6 +1186,158 @@ function getUserData()
 		} );
 }
 
+function getTextColor()
+{
+	if ( Settings.option( "theme" ) == 'dark' )
+		return 'white';
+	else
+		return 'black';
+}
+
+function getBGColor()
+{
+	if ( Settings.option( "theme" ) == 'dark' )
+		return 'black';
+	else
+		return 'white';
+}
+
+function getHighlightTextColor()
+{
+	if ( Feature.blackAndWhite() )
+	{
+		if ( Settings.option( "theme" ) == 'dark' )
+			return 'black';
+		else
+			return 'white';
+	}
+	else
+	{
+		return 'white';
+	}
+}
+
+function getHighlightBGColor()
+{
+	if ( Feature.blackAndWhite() )
+	{
+		if ( Settings.option( "theme" ) == 'dark' )
+			return 'white';
+		else
+			return 'black';
+	}
+	else
+	{
+		if ( Settings.option( "color" ) )
+			return Settings.option( "color" );
+		else
+			return 'blue';
+	}
+}
+
+function getURIOptions()
+{
+	// Remove old and unused settings
+	if ( VERSION >= 2.11 )
+	{
+		Settings.option( 'access_token', null );
+		Settings.option( 'settings', null );
+		Settings.option( 'token_type', null );
+	}
+
+	var data = Settings.option();
+
+	data.platform = Platform.version();
+	data.hasColor = Feature.color();
+
+	data = JSON.stringify( data );
+
+	if ( DEBUG ) console.log( 'Encoding Options:' );
+	if ( DEBUG ) console.log( data );
+
+	return encodeURIComponent( data );
+}
+
+// EVENT HANDLERS
+function clickOnList( e )
+{
+	if ( DEBUG ) console.log( "Viewing Tasks For: " + e.item.title );
+
+	if ( Platform.version() === 'basalt' )
+	{
+		var loading = new UI.Card(
+		{
+			banner: Feature.round( 'images/loading-round.png', 'images/loading.png' )
+		} );
+
+		loading.show();
+	}
+
+	try
+	{
+		if ( e.item.type == 'folder' )
+		{
+			getLists( e.item.id, function ()
+			{
+				sublistMenu.show();
+				if ( Platform.version() === 'basalt' ) loading.hide();
+			} );
+		}
+		else
+		{
+			getTaskPositions( e.item.id, function ()
+			{
+				getTasks( e.item.id, e.item.title, function ()
+				{
+					if ( taskItems )
+					{
+						taskMenu.show();
+						if ( Platform.version() === 'basalt' ) loading.hide();
+					}
+					else
+					{
+						error.body( "\nNo tasks were found for this list" );
+						error.show();
+						if ( Platform.version() === 'basalt' ) loading.hide();
+					}
+
+					taskItems = 0;
+				} );
+			} );
+		}
+	}
+	catch ( err )
+	{
+		reportError( "List Selected: " + err.message );
+	}
+}
+
+function clickOnTask( e )
+{
+	if ( DEBUG ) console.log( "Selected Task: " + e.item.title );
+
+	try
+	{
+		getTask( e.item.data );
+	}
+	catch ( err )
+	{
+		reportError( "Task Selected: " + err.message );
+	}
+}
+
+function longClickOnTask( e )
+{
+	try
+	{
+		completeTask( e );
+	}
+	catch ( err )
+	{
+		reportError( "Marked Task Complete: " + err.message );
+	}
+}
+
 // UTILITY FUNCTIONS
 function sortItems( a, b )
 {
@@ -1240,7 +1353,10 @@ function cleanTitle( title )
 {
 	try
 	{
-		return decodeURIComponent( escape( title ) ).replace( /([\uD800-\uDBFF][\uDC00-\uDFFF])/g, "" ).trim();
+		if ( title )
+			return decodeURIComponent( escape( title ) ).replace( /([\uD800-\uDBFF][\uDC00-\uDFFF])/g, "" ).trim();
+		else
+			return title;
 	}
 	catch ( err )
 	{

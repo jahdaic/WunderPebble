@@ -29,6 +29,11 @@
                 "type": "font"
             },
             {
+                "file": "images/loading.png",
+                "name": "IMAGES_LOADING_PNG",
+                "type": "bitmap"
+            },
+            {
                 "file": "images/splash-round.png",
                 "name": "IMAGES_SPLASH_ROUND_PNG",
                 "type": "bitmap"
@@ -36,16 +41,6 @@
             {
                 "file": "images/loading-round.png",
                 "name": "IMAGES_LOADING_ROUND_PNG",
-                "type": "bitmap"
-            },
-            {
-                "file": "images/task-bg-round.png",
-                "name": "IMAGES_TASK_BG_ROUND_PNG",
-                "type": "bitmap"
-            },
-            {
-                "file": "images/task-bg.png",
-                "name": "IMAGES_TASK_BG_PNG",
                 "type": "bitmap"
             },
             {
@@ -100,11 +95,6 @@
                 "type": "bitmap"
             },
             {
-                "file": "images/loading.png",
-                "name": "IMAGES_LOADING_PNG",
-                "type": "bitmap"
-            },
-            {
                 "file": "images/task-trash.png",
                 "name": "IMAGES_TASK_TRASH_PNG",
                 "type": "bitmap"
@@ -145,7 +135,7 @@
     ],
     "uuid": "4513f443-59f3-4cf6-a9ca-1c23b18e1224",
     "versionCode": 1,
-    "versionLabel": "2.1",
+    "versionLabel": "2.11",
     "watchapp": {
         "hiddenApp": false,
         "watchface": false
